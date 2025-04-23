@@ -53,9 +53,10 @@ For 1D data, PyTurbo_SF expects a single dimension which can be either:
 
 **Coordinate Types and Units:**
 - Time coordinates: Can be provided as:
-  - Numeric values: seconds
+  - Numeric values: seconds, hours, days, or other time units
   - Datetime objects: pandas.DatetimeIndex or numpy.datetime64 objects
-- Spatial coordinates: Typically in meters
+  - String timestamps: will be automatically converted to datetime objects by xarray
+- Spatial coordinates: Typically in meters, kilometers, or non-dimensional units
 - All coordinates should use consistent units within a dataset
 
 **Structure for 1D Dataset:**
@@ -139,9 +140,10 @@ The order of dimensions is important as it affects how PyTurbo_SF interprets you
 
 **Coordinate Types and Units:**
 - For physical domains, coordinates should typically be in physical units:
-  - `x`, `y`: Spatial horizontal coordinates in meters
-  - `z`: Vertical coordinate in meters
-
+  - `x`, `y`: Spatial horizontal coordinates in consistent units (e.g., meters, kilometers)
+  - `z`: Vertical coordinate in consistent units (e.g., meters, kilometers)
+- For non-dimensional or normalized domains:
+  - Coordinates can be normalized with respect to characteristic scales (e.g., L/L₀)
 
 **Structure for 2D Dataset:**
 ```python
@@ -149,16 +151,36 @@ The order of dimensions is important as it affects how PyTurbo_SF interprets you
 nx, ny = 256, 256
 x = np.linspace(0, 10000, nx)  # x-coordinates in meters (0-10 km domain)
 y = np.linspace(0, 10000, ny)  # y-coordinates in meters (0-10 km domain)
-Y, X = np.meshgrid(x, y, indexing='ij')       # 2D coordinate grids
+X, Y = np.meshgrid(x, y)       # 2D coordinate grids
 
 # Create velocity components (e.g., in m/s)
 u = 5 * np.sin(X/1000) * np.cos(Y/1000)  # u-velocity in m/s
 v = -5 * np.cos(X/1000) * np.sin(Y/1000) # v-velocity in m/s
 T = 20 + 2 * np.sin((X+Y)/2000)          # Temperature in °C
 
+# For structured grid (regularly spaced coordinates)
+ds_2d_structured = xr.Dataset(
+    data_vars={
+        "u": (["y", "x"], u),  # Note the order of dimensions 
+        "v": (["y", "x"], v),  # Must match the coords definition
+        "temperature": (["y", "x"], T),  # Example scalar field
+    },
+    coords={
+        "x": x,  # 1D coordinate array (meters)
+        "y": y   # 1D coordinate array (meters)
+    },
+    attrs={
+        "description": "2D flow field in horizontal plane",
+        "units_x": "meters",
+        "units_y": "meters",
+        "units_u": "m/s",
+        "units_v": "m/s",
+        "units_temperature": "celsius"
+    }
+)
 
-# For (un)structured grid 
-# Important: For any grid, x and y must be 2D arrays
+# For unstructured grid (irregularly spaced coordinates)
+# Important: For unstructured grids, x and y must be 2D arrays
 # Example: Curvilinear grid or distorted mesh
 # This is ESSENTIAL for calculating structure functions on irregular domains
 x_irregular = X + 200*np.sin(Y/2000)  # Distorted x-coordinate
@@ -198,8 +220,8 @@ ds_zx_plane = xr.Dataset(
         "w": (["z", "x"], w),  # Using u and w for horiz/vert velocities
     },
     coords={
-        "x": (["z", "x"], X),  # Horizontal coordinate (meters)
-        "z": (["z", "x"], Z)   # Vertical coordinate (meters)
+        "x": x,  # Horizontal coordinate (meters)
+        "z": z   # Vertical coordinate (meters)
     },
     attrs={
         "description": "Vertical slice in x-direction",
@@ -217,7 +239,7 @@ For 3D data, PyTurbo_SF expects dimensions in the order `(z, y, x)`:
 
 **Important Note for Geophysical Flows:** Since in most geophysical fluid flows the vertical length scale is much smaller than the horizontal scale, we advise users to use a stretched coordinate system:
 
-$z^* = \int_{z_{ref}}^{z} \frac{N}{f} dz'$
+$z^* = \int \frac{N}{f} dz'$
 
 where N is the buoyancy frequency and f is the Coriolis parameter. This transformation helps normalize the structure function calculations across different scales.
 
@@ -230,14 +252,28 @@ y = np.linspace(0, 2*np.pi, ny)
 z = np.linspace(0, 2*np.pi, nz)
 
 # For a regular grid, use meshgrid
-Z, Y, X = np.meshgrid(z, y, x, indexing='ij')
+X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
 
 # Example velocity field (simple vortex)
 u = np.sin(X) * np.cos(Y) * np.cos(Z)
 v = -np.cos(X) * np.sin(Y) * np.cos(Z)
 w = 0.3 * np.sin(Z)
 
-# For (un)structured 3D grid, include full coordinate arrays
+# Create the dataset
+ds_3d = xr.Dataset(
+    data_vars={
+        "u": (["z", "y", "x"], u),
+        "v": (["z", "y", "x"], v),
+        "w": (["z", "y", "x"], w),
+    },
+    coords={
+        "x": x,
+        "y": y,
+        "z": z
+    }
+)
+
+# For unstructured 3D grid, include full coordinate arrays
 ds_3d_unstructured = xr.Dataset(
     data_vars={
         "u": (["z", "y", "x"], u),
@@ -424,8 +460,8 @@ ds = xr.Dataset(
         "v": (["y", "x"], v),
     },
     coords={
-        "x": (["y", "x"], X),
-        "y": (["y", "x"], Y)
+        "x": x,
+        "y": y
     }
 )
 
@@ -471,7 +507,7 @@ y = np.linspace(0, 2*np.pi, ny)
 z = np.linspace(0, 2*np.pi, nz)
 
 # For a regular grid, create 3D arrays
-Z, Y, X = np.meshgrid(z, y, x, indexing='ij')
+X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
 
 # Example velocity field (simple vortex)
 u = np.sin(X) * np.cos(Y) * np.cos(Z)
@@ -486,9 +522,9 @@ ds = xr.Dataset(
         "w": (["z", "y", "x"], w),
     },
     coords={
-        "x": (["z", "y", "x"], X),
-        "y": (["z", "y", "x"], Y),
-        "z": (["z", "y", "x"], Z)
+        "x": x,
+        "y": y,
+        "z": z
     }
 )
 
