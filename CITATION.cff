@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Ayouche"
+  given-names: "Adam"
+  orcid: "https://orcid.org/0000-0002-5648-4521"
+- family-names: "Hell"
+  given-names: "Momme"
+  orcid: "https://orcid.org/0000-0002-5754-3925"
+- family-names: "Fox-Kemper"
+  given-names: "Baylor"
+  orcid: "https://orcid.org/0000-0002-2871-2048"
+title: "pyturbo_sf"
+version: 1.0.0
+doi: 10.5281/zenodo.10463863
+date-released: 2025-04-10
+url: "https://github.com/aayouche/pyturbo_sf"
