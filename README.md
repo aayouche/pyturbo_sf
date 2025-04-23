@@ -371,7 +371,7 @@ $$S_{\perp S,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) 
 
 Combines velocity differences with advective velocity differences:
 
-$S_{adv,n}(r) = \langle ( (\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})) )^n \rangle_{\vec{x}}$
+$$S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}$$
 
 ## 3D Structure Functions
 
@@ -398,6 +398,36 @@ Similar to 2D, PyTurbo_SF offers scalar, scalar-scalar, longitudinal-scalar, and
 ### 3D Advective Structure Function
 
 $$S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}$$
+
+## Structure Function Keys
+
+### 1D Structure Functions
+- Scalar structure function: `fun='scalar'`
+- Scalar-scalar structure function: `fun='scalar_scalar'`
+
+### 2D Structure Functions
+- Longitudinal structure function: `fun='longitudinal'`
+- Transverse structure function: `fun='transverse'`
+- Default velocity structure function: `fun='default_vel'`
+- Scalar structure function: `fun='scalar'`
+- Scalar-scalar structure function: `fun='scalar_scalar'`
+- Longitudinal-transverse structure function: `fun='longitudinal_transverse'`
+- Longitudinal-scalar structure function: `fun='longitudinal_scalar'`
+- Transverse-scalar structure function: `fun='transverse_scalar'`
+- Advective structure function: `fun='advective'`
+
+### 3D Structure Functions
+- Longitudinal structure function: `fun='longitudinal'`
+- Transverse in xy-plane: `fun='transverse_ij'`
+- Transverse in xz-plane: `fun='transverse_ik'`
+- Transverse in yz-plane: `fun='transverse_jk'`
+- Scalar structure function: `fun='scalar'`
+- Scalar-scalar structure function: `fun='scalar_scalar'`
+- Longitudinal-scalar structure function: `fun='longitudinal_scalar'`
+- Transverse-scalar structure function (xy-plane): `fun='transverse_ij_scalar'`
+- Transverse-scalar structure function (xz-plane): `fun='transverse_ik_scalar'`
+- Transverse-scalar structure function (yz-plane): `fun='transverse_jk_scalar'`
+- Advective structure function: `fun='advective'`
 
 # Quickstart
 ---
