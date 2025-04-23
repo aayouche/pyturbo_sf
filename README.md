@@ -371,7 +371,9 @@ $$S_{\perp S,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) 
 
 Combines velocity differences with advective velocity differences:
 
-$$S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}$$
+$$
+S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}
+$$
 
 ## 3D Structure Functions
 
