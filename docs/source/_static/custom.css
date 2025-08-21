@@ -1,0 +1,198 @@
+/* Custom CSS for PyTurbo_SF Documentation */
+
+/* Logo styling */
+.wy-side-nav-search {
+    background-color: #2980B9;
+}
+
+.wy-side-nav-search .wy-dropdown > a img.logo {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 0.5em;
+}
+
+/* Custom color scheme */
+:root {
+    --pyturbo-primary: #2980B9;
+    --pyturbo-secondary: #3498DB;
+    --pyturbo-accent: #E74C3C;
+    --pyturbo-dark: #2C3E50;
+    --pyturbo-light: #ECF0F1;
+}
+
+/* Header styling */
+.wy-nav-content-wrap {
+    background: linear-gradient(135deg, var(--pyturbo-light) 0%, #ffffff 100%);
+}
+
+/* Code blocks */
+.highlight {
+    border-left: 4px solid var(--pyturbo-primary);
+    background-color: #f8f9fa;
+}
+
+.highlight-python .highlight {
+    background-color: #f8f9fa;
+}
+
+/* Math equations */
+.math {
+    color: var(--pyturbo-dark);
+}
+
+/* Admonitions */
+.admonition {
+    border-left: 4px solid var(--pyturbo-primary);
+}
+
+.admonition.note {
+    border-left-color: var(--pyturbo-secondary);
+}
+
+.admonition.warning {
+    border-left-color: var(--pyturbo-accent);
+}
+
+.admonition.important {
+    border-left-color: #F39C12;
+}
+
+/* Tables */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
+.wy-table thead th {
+    background-color: var(--pyturbo-primary);
+    color: white;
+}
+
+.wy-table-striped tr:nth-child(2n-1) td {
+    background-color: #f8f9fa;
+}
+
+/* Navigation */
+.wy-menu-vertical a {
+    color: #404040;
+}
+
+.wy-menu-vertical a:hover {
+    background-color: var(--pyturbo-light);
+    color: var(--pyturbo-dark);
+}
+
+.wy-menu-vertical .current > a {
+    background-color: var(--pyturbo-primary);
+    border-right: 3px solid var(--pyturbo-secondary);
+}
+
+/* Buttons */
+.btn {
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-neutral {
+    background-color: var(--pyturbo-primary);
+    color: white;
+}
+
+.btn-neutral:hover {
+    background-color: var(--pyturbo-secondary);
+    color: white;
+}
+
+/* Copy button styling */
+.copybtn {
+    background-color: var(--pyturbo-primary);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.copybtn:hover {
+    opacity: 1;
+}
+
+/* Notebook cells */
+.nbinput .prompt,
+.nboutput .prompt {
+    color: var(--pyturbo-primary);
+    font-weight: bold;
+}
+
+/* Custom badge styling */
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.4em;
+    font-size: 75%;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+
+.badge-python {
+    background-color: #3776ab;
+    color: white;
+}
+
+.badge-numpy {
+    background-color: #013243;
+    color: white;
+}
+
+.badge-xarray {
+    background-color: #0f4c81;
+    color: white;
+}
+
+/* Performance indicators */
+.performance-metric {
+    background-color: #e8f5e8;
+    border: 1px solid #c3e6c3;
+    border-radius: 4px;
+    padding: 0.5em;
+    margin: 0.5em 0;
+}
+
+.benchmark-result {
+    font-family: monospace;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0.5em;
+    margin: 0.5em 0;
+}
+
+/* Responsive design improvements */
+@media screen and (max-width: 768px) {
+    .wy-table-responsive {
+        margin-bottom: 1em;
+        overflow-x: auto;
+    }
+    
+    .highlight {
+        margin: 1em 0;
+    }
+}
+
+/* Footer customization */
+.rst-footer-buttons {
+    margin-top: 2em;
+    border-top: 1px solid var(--pyturbo-light);
+    padding-top: 1em;
+}
+
+/* Version selector */
+.rst-versions {
+    background-color: var(--pyturbo-dark);
+}
+
+.rst-versions .rst-current-version {
+    background-color: var(--pyturbo-primary);
+}
