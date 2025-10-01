@@ -182,8 +182,6 @@ To upgrade PyTurbo_SF to the latest version:
    # Using pip
    pip install --upgrade pyturbo_sf
    
-   # Using conda
-   conda update pyturbo_sf
 
 To upgrade to a specific version:
 
@@ -201,8 +199,7 @@ To remove PyTurbo_SF:
    # Using pip
    pip uninstall pyturbo_sf
    
-   # Using conda
-   conda remove pyturbo_sf
+
 
 Next Steps
 ----------

@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Publishing DTD v1.2 20190208//EN"
+                  "JATS-publishing1.dtd">
+<article xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:xlink="http://www.w3.org/1999/xlink" dtd-version="1.2" article-type="other">
+<front>
+<journal-meta>
+<journal-id></journal-id>
+<journal-title-group>
+<journal-title>Journal of Open Source Software</journal-title>
+<abbrev-journal-title>JOSS</abbrev-journal-title>
+</journal-title-group>
+<issn publication-format="electronic">2475-9066</issn>
+<publisher>
+<publisher-name>Open Journals</publisher-name>
+</publisher>
+</journal-meta>
+<article-meta>
+<article-id pub-id-type="publisher-id">0</article-id>
+<article-id pub-id-type="doi">N/A</article-id>
+<title-group>
+<article-title>PyTurbo_SF: An Adaptive Bootstrap Framework for Efficient
+Structure Function Analysis in Turbulent Flows</article-title>
+</title-group>
+<contrib-group>
+<contrib contrib-type="author" corresp="yes">
+<name>
+<surname>Ayouche</surname>
+<given-names>Adam</given-names>
+</name>
+<xref ref-type="aff" rid="aff-1"/>
+<xref ref-type="corresp" rid="cor-1"><sup>*</sup></xref>
+</contrib>
+<contrib contrib-type="author">
+<contrib-id contrib-id-type="orcid">https://orcid.org/0000-0002-2871-2048</contrib-id>
+<name>
+<surname>Fox-Kemper</surname>
+<given-names>Baylor</given-names>
+</name>
+<xref ref-type="aff" rid="aff-1"/>
+</contrib>
+<contrib contrib-type="author">
+<contrib-id contrib-id-type="orcid">https://orcid.org/0000-0002-5754-3925</contrib-id>
+<name>
+<surname>Hell</surname>
+<given-names>Momme</given-names>
+</name>
+<xref ref-type="aff" rid="aff-2"/>
+</contrib>
+<contrib contrib-type="author">
+<contrib-id contrib-id-type="orcid">https://orcid.org/0000-0002-0202-0481</contrib-id>
+<name>
+<surname>Pearson</surname>
+<given-names>Brodie</given-names>
+</name>
+<xref ref-type="aff" rid="aff-3"/>
+</contrib>
+<contrib contrib-type="author">
+<contrib-id contrib-id-type="orcid">https://orcid.org/0000-0002-1186-2082</contrib-id>
+<name>
+<surname>Wagner</surname>
+<given-names>Cassidy</given-names>
+</name>
+<xref ref-type="aff" rid="aff-3"/>
+</contrib>
+<aff id="aff-1">
+<institution-wrap>
+<institution>Department of Earth, Environmental, and Planetary Sciences
+(DEEPS), Brown University, Providence, RI, USA</institution>
+</institution-wrap>
+</aff>
+<aff id="aff-2">
+<institution-wrap>
+<institution>Woods Hole Oceanographic Institution, Woods Hole, MA,
+USA</institution>
+</institution-wrap>
+</aff>
+<aff id="aff-3">
+<institution-wrap>
+<institution>Department of Earth, Environmental, and Planetary Sciences
+(DEEPS), Brown University, Providence, RI, USA</institution>
+</institution-wrap>
+</aff>
+</contrib-group>
+<author-notes>
+<corresp id="cor-1">* E-mail: <email></email></corresp>
+</author-notes>
+<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2025-09-30">
+<day>30</day>
+<month>9</month>
+<year>2025</year>
+</pub-date>
+<volume>¿VOL?</volume>
+<issue>¿ISSUE?</issue>
+<fpage>¿PAGE?</fpage>
+<permissions>
+<copyright-statement>Authors of papers retain copyright and release the
+work under a Creative Commons Attribution 4.0 International License (CC
+BY 4.0)</copyright-statement>
+<copyright-year>1970</copyright-year>
+<copyright-holder>The article authors</copyright-holder>
+<license license-type="open-access" xlink:href="https://creativecommons.org/licenses/by/4.0/">
+<license-p>Authors of papers retain copyright and release the work under
+a Creative Commons Attribution 4.0 International License (CC BY
+4.0)</license-p>
+</license>
+</permissions>
+<kwd-group kwd-group-type="author">
+<kwd>Python</kwd>
+<kwd>turbulence</kwd>
+<kwd>structure functions</kwd>
+<kwd>fluid dynamics</kwd>
+<kwd>bootstrap statistics</kwd>
+<kwd>oceanography</kwd>
+<kwd>atmospheric science</kwd>
+<kwd>energy cascade</kwd>
+<kwd>geophysical flows</kwd>
+</kwd-group>
+</article-meta>
+</front>
+<body>
+<sec id="summary">
+  <title>Summary</title>
+  <p>Structure functions are fundamental diagnostic tools in turbulence
+  research that reveal energy cascade characteristics, intermittency
+  properties, and scaling laws by quantifying spatial correlations
+  between field differences at varying separation distances
+  (<xref alt="Frisch, 1995" rid="ref-Frisch1995" ref-type="bibr">Frisch,
+  1995</xref>;
+  <xref alt="Pope, 2000" rid="ref-Pope2000" ref-type="bibr">Pope,
+  2000</xref>). PyTurbo_SF is a comprehensive Python package that
+  tackles structure function analysis through an innovative adaptive
+  bootstrap framework, enabling efficient and statistically rigorous
+  calculations for 1D, 2D, and 3D turbulent datasets.</p>
+  <p>The package addresses critical computational bottlenecks in modern
+  turbulence analysis by implementing power-of-2 spacing (sampling
+  indices) strategies, adaptive convergence monitoring, and
+  memory-optimized algorithms that automatically scale with dataset
+  characteristics. PyTurbo_SF provides unprecedented statistical rigor
+  through bootstrap resampling, delivering robust uncertainty
+  quantification that has been missing from existing structure function
+  tools. The software seamlessly processes xarray Datasets and supports
+  diverse structure function types including longitudinal, transverse,
+  scalar, advective, and energy flux functions recently developed for
+  analyzing geophysical energy transfers
+  (<xref alt="Pearson et al., 2021" rid="ref-Pearson2021" ref-type="bibr">Pearson
+  et al., 2021</xref>,
+  <xref alt="2024" rid="ref-Pearson2024" ref-type="bibr">2024</xref>).</p>
+  <p>Applications span from oceanographic mooring time series and
+  satellite altimetry measurements to high-resolution numerical
+  simulations, enabling researchers to apply consistent, statistically
+  sound methodology across scales from laboratory turbulence to
+  planetary circulation systems.</p>
+</sec>
+<sec id="statement-of-need">
+  <title>Statement of need</title>
+  <p>Contemporary turbulence research increasingly relies on massive,
+  high-resolution datasets from advanced observational platforms
+  (satellite missions, autonomous platforms) and computational
+  simulations (large eddy simulations, direct numerical simulations).
+  Traditional structure function calculations face severe limitations:
+  computational intractability for large 2D/3D datasets, absence of
+  rigorous uncertainty quantification, manual parameter tuning
+  requirements, and limited function types that restrict scientific
+  insights.</p>
+  <p>Existing software tools address only subsets of these challenges.
+  fastSF provides parallelized C++ implementations but lacks advanced
+  function types and uncertainty quantification
+  (<xref alt="Sadhukhan et al., 2021" rid="ref-Sadhukhan2021" ref-type="bibr">Sadhukhan
+  et al., 2021</xref>). MATLAB-based toolkits offer specific analyses
+  but are environmentally limited and lack comprehensive statistical
+  frameworks
+  (<xref alt="Fuchs et al., 2022" rid="ref-Fuchs2022" ref-type="bibr">Fuchs
+  et al., 2022</xref>). Alternative approaches like coarse-graining
+  (FlowSieve) address different aspects of turbulence analysis but
+  cannot provide the detailed scale-by-scale information that structure
+  functions uniquely deliver
+  (<xref alt="Storer &amp; Aluie, 2023" rid="ref-Storer2023" ref-type="bibr">Storer
+  &amp; Aluie, 2023</xref>).</p>
+  <p>The scientific community urgently needs tools capable of analyzing
+  emerging datasets from missions like NASA’s SWOT satellite, which
+  provides unprecedented high-resolution ocean surface measurements, and
+  next-generation atmospheric simulations that generate terabyte-scale
+  3D datasets. Recent advances in structure function theory,
+  particularly advective structure functions for quantifying energy flux
+  transfers
+  (<xref alt="Pearson et al., 2021" rid="ref-Pearson2021" ref-type="bibr">Pearson
+  et al., 2021</xref>) and spectral flux estimation methodologies
+  (<xref alt="Pearson et al., 2024" rid="ref-Pearson2024" ref-type="bibr">Pearson
+  et al., 2024</xref>), require computational frameworks that can handle
+  both traditional and novel function types with statistical rigor.</p>
+  <p>PyTurbo_SF fills this critical gap by providing the first
+  comprehensive, statistically robust framework for structure function
+  analysis that scales from small observational datasets to massive
+  simulation outputs while delivering quantified uncertainties essential
+  for scientific interpretation.</p>
+</sec>
+<sec id="software-functionality">
+  <title>Software functionality</title>
+  <p>PyTurbo_SF implements the complete mathematical framework for
+  structure function analysis, supporting functions of the form
+  <inline-formula><alternatives>
+  <tex-math><![CDATA[S_n(r) = \langle |\phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x})|^n \rangle_{\mathbf{x}}]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>S</mml:mi><mml:mi>n</mml:mi></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>r</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mo stretchy="false" form="prefix">⟨</mml:mo><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">|</mml:mo><mml:mi>ϕ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>𝐱</mml:mi><mml:mo>+</mml:mo><mml:mi>𝐫</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>−</mml:mo><mml:mi>ϕ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>𝐱</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo stretchy="true" form="postfix">|</mml:mo></mml:mrow><mml:mi>n</mml:mi></mml:msup><mml:msub><mml:mo stretchy="false" form="postfix">⟩</mml:mo><mml:mi>𝐱</mml:mi></mml:msub></mml:mrow></mml:math></alternatives></inline-formula>
+  where <inline-formula><alternatives>
+  <tex-math><![CDATA[\phi]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>ϕ</mml:mi></mml:math></alternatives></inline-formula>
+  represents arbitrary field variables (velocity, scalars, derived
+  quantities), <inline-formula><alternatives>
+  <tex-math><![CDATA[\mathbf{r}]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>𝐫</mml:mi></mml:math></alternatives></inline-formula>
+  is the separation vector, <inline-formula><alternatives>
+  <tex-math><![CDATA[n]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>n</mml:mi></mml:math></alternatives></inline-formula>
+  is the order, and <inline-formula><alternatives>
+  <tex-math><![CDATA[\langle \cdot \rangle_{\mathbf{x}}]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mo stretchy="false" form="prefix">⟨</mml:mo><mml:mi>⋅</mml:mi><mml:msub><mml:mo stretchy="false" form="postfix">⟩</mml:mo><mml:mi>𝐱</mml:mi></mml:msub></mml:mrow></mml:math></alternatives></inline-formula>
+  denotes spatial averaging. The package supports traditional functions
+  (longitudinal, transverse, scalar), cross functions
+  (longitudinal-transverse, scalar-scalar) and advective structure
+  functions that enable direct energy flux quantification
+  (<xref alt="Pearson et al., 2021" rid="ref-Pearson2021" ref-type="bibr">Pearson
+  et al., 2021</xref>) and pressure-work structure functions for
+  analyzing energy transfer mechanisms.</p>
+  <p>The core algorithmic breakthrough is the adaptive bootstrap
+  methodology that increases computational efficiency and statistical
+  reliability. The algorithm employs power-of-2 spacings (1, 2, 4, 8,
+  16, …) that optimize memory access patterns while providing optimal
+  scale separation. Adaptive convergence monitoring dynamically
+  allocates computational resources by grouping unconverged bins by
+  characteristics and prioritizing bootstrap samples based on
+  statistical effectiveness. This approach eliminates manual parameter
+  tuning while guaranteeing robust uncertainty estimates through
+  principled resampling.</p>
+  <p>Performance optimization enables analysis of previously intractable
+  datasets. Memory-efficient data structures and intelligent garbage
+  collection maintain peak memory usage at 2-5× base dataset size.
+  Parallel processing via multiple backends (multiprocessing, threading,
+  loky) provides near-linear scaling with available cores. Benchmark
+  testing with 2D DYCOMS turbulence data demonstrates time complexity
+  scaling of O(NM log N log M) for 2D data, enabling analysis of
+  datasets with millions of grid points.</p>
+  <p>The package provides three main interfaces optimized for different
+  dimensionalities: <monospace>bin_sf_1d()</monospace> for oceanographic
+  and atmospheric time series, <monospace>bin_sf_2d()</monospace> for
+  satellite and model surface fields, and
+  <monospace>bin_sf_3d()</monospace> for volumetric simulation data. All
+  functions automatically detect data characteristics and optimize
+  computational strategies accordingly, while supporting both isotropic
+  averaging and directional analysis for anisotropic flows.</p>
+  <fig>
+    <caption><p>Satellite altimetry analysis showing second-order
+    longitudinal structure functions calculated from SWOT data in the
+    Gulf Stream region. Bootstrap error bars demonstrate statistical
+    rigor while revealing energy cascade signatures in ocean surface
+    turbulence. Results show the characteristic
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[r^{2/3}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msup><mml:mi>r</mml:mi><mml:mrow><mml:mn>2</mml:mn><mml:mi>/</mml:mi><mml:mn>3</mml:mn></mml:mrow></mml:msup></mml:math></alternatives></inline-formula>
+    scaling predicted by geostrophic turbulence
+    theory.<styled-content id="figU003Aswot"></styled-content></p></caption>
+    <graphic mimetype="image" mime-subtype="png" xlink:href="figure1.png" />
+  </fig>
+  <fig>
+    <caption><p>Regional ocean model analysis using CROCO simulation
+    data showing energy transfer mechanisms through combined
+    velocity-scalar structure functions. The adaptive bootstrap
+    algorithm efficiently handles the large 2D spatial dataset while
+    providing robust uncertainty quantification for energy flux
+    estimates.<styled-content id="figU003Acroco"></styled-content></p></caption>
+    <graphic mimetype="image" mime-subtype="png" xlink:href="figure2.png" />
+  </fig>
+  <fig>
+    <caption><p>Regional ocean model analysis using CROCO simulation
+    data showing energy transfer mechanisms through combined 2D
+    velocity-scalar structure
+    functions.<styled-content id="figU003Acroco2"></styled-content></p></caption>
+    <graphic mimetype="image" mime-subtype="png" xlink:href="figure3.png" />
+  </fig>
+  <fig>
+    <caption><p>Atmospheric boundary layer turbulence analysis from
+    DYCOMS large eddy simulation demonstrating 3D structure function
+    capabilities. Volume-weighted binning accurately captures isotropic
+    averaging in the 3D velocity field while bootstrap resampling
+    provides statistical reliability for intermittency
+    characterization.<styled-content id="figU003Adycoms"></styled-content></p></caption>
+    <graphic mimetype="image" mime-subtype="png" xlink:href="figure4.png" />
+  </fig>
+</sec>
+<sec id="related-work-and-scientific-impact">
+  <title>Related work and scientific impact</title>
+  <p>PyTurbo_SF represents a significant advancement over existing
+  structure function software by uniquely combining comprehensive
+  function types, adaptive bootstrap methodology, and optimized
+  computational algorithms. While fastSF provides basic parallelized
+  calculations
+  (<xref alt="Sadhukhan et al., 2021" rid="ref-Sadhukhan2021" ref-type="bibr">Sadhukhan
+  et al., 2021</xref>) and MATLAB toolkits offer specific analyses
+  (<xref alt="Fuchs et al., 2022" rid="ref-Fuchs2022" ref-type="bibr">Fuchs
+  et al., 2022</xref>), no existing software delivers the combination of
+  statistical rigor, computational efficiency, and methodological
+  breadth required for contemporary turbulence research.</p>
+  <p>The package enables application of recent theoretical developments
+  in structure function analysis, particularly advective structure
+  functions that provide direct measurements of energy flux transfers in
+  geophysical flows
+  (<xref alt="Pearson et al., 2021" rid="ref-Pearson2021" ref-type="bibr">Pearson
+  et al., 2021</xref>). These functions reveal energy pathways that
+  traditional approaches cannot capture, offering new insights into
+  energy cascade mechanisms in ocean and atmospheric turbulence. The
+  software also supports spectral flux estimation methodologies that
+  bridge structure function analysis with spectral energy transfer
+  studies
+  (<xref alt="Pearson et al., 2024" rid="ref-Pearson2024" ref-type="bibr">Pearson
+  et al., 2024</xref>).</p>
+  <p>Scientific applications demonstrate the software’s transformative
+  impact across multiple domains. In oceanography, PyTurbo_SF enables
+  analysis of satellite altimetry data for characterizing surface
+  turbulence and energy dissipation rates. Atmospheric scientists can
+  analyze large eddy simulation data to understand boundary layer
+  turbulence and energy transfer mechanisms. The consistent methodology
+  across platforms enables comparative studies that were previously
+  impossible due to software limitations and statistical
+  uncertainties.</p>
+  <p>The adaptive bootstrap framework addresses a fundamental challenge
+  in turbulence analysis: quantifying uncertainties in structure
+  function estimates. Previous studies often reported results without
+  rigorous error bars, limiting scientific interpretation and
+  reproducibility. PyTurbo_SF’s principled uncertainty quantification
+  enables robust statistical comparisons and hypothesis testing,
+  elevating the scientific standards of structure function analysis.</p>
+</sec>
+<sec id="acknowledgements">
+  <title>Acknowledgements</title>
+  <p>This software package is based upon work supported by the US
+  Department of Energy grant DE-SC0024572.</p>
+  <p>Any opinions, findings, and conclusions or recommendations
+  expressed in this package are those of the authors and do not
+  necessarily reflect the views of the US Department of Energy.</p>
+</sec>
+</body>
+<back>
+<ref-list>
+  <title></title>
+  <ref id="ref-Frisch1995">
+    <element-citation publication-type="book">
+      <person-group person-group-type="author">
+        <name><surname>Frisch</surname><given-names>Uriel</given-names></name>
+      </person-group>
+      <source>Turbulence: The legacy of A.N. Kolmogorov</source>
+      <publisher-name>Cambridge University Press</publisher-name>
+      <publisher-loc>Cambridge, UK</publisher-loc>
+      <year iso-8601-date="1995">1995</year>
+      <pub-id pub-id-type="doi">10.1017/CBO9781139170666</pub-id>
+    </element-citation>
+  </ref>
+  <ref id="ref-Pope2000">
+    <element-citation publication-type="book">
+      <person-group person-group-type="author">
+        <name><surname>Pope</surname><given-names>Stephen B.</given-names></name>
+      </person-group>
+      <source>Turbulent flows</source>
+      <publisher-name>Cambridge University Press</publisher-name>
+      <publisher-loc>Cambridge, UK</publisher-loc>
+      <year iso-8601-date="2000">2000</year>
+      <pub-id pub-id-type="doi">10.1017/CBO9780511840531</pub-id>
+    </element-citation>
+  </ref>
+  <ref id="ref-Pearson2021">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Pearson</surname><given-names>Brodie</given-names></name>
+        <name><surname>Pearson</surname><given-names>Jenna</given-names></name>
+        <name><surname>Fox-Kemper</surname><given-names>Baylor</given-names></name>
+      </person-group>
+      <article-title>Advective structure functions in anisotropic two-dimensional turbulence</article-title>
+      <source>Journal of Fluid Mechanics</source>
+      <publisher-name>Cambridge University Press</publisher-name>
+      <year iso-8601-date="2021">2021</year>
+      <volume>916</volume>
+      <pub-id pub-id-type="doi">10.1017/jfm.2021.247</pub-id>
+      <fpage>A49</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-Pearson2024">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Pearson</surname><given-names>Brodie</given-names></name>
+        <name><surname>Wagner</surname><given-names>Cassidy</given-names></name>
+        <name><surname>Fox-Kemper</surname><given-names>Baylor</given-names></name>
+        <name><surname>Samelson</surname><given-names>Roger</given-names></name>
+      </person-group>
+      <article-title>Estimating spectral fluxes in quasi-two-dimensional flows with advective structure functions and Bessel functions</article-title>
+      <source>Journal of Fluid Mechanics</source>
+      <year iso-8601-date="2024">2024</year>
+    </element-citation>
+  </ref>
+  <ref id="ref-Sadhukhan2021">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Sadhukhan</surname><given-names>Shubhadeep</given-names></name>
+        <name><surname>Bhattacharya</surname><given-names>Siddhartha</given-names></name>
+        <name><surname>Verma</surname><given-names>Mahendra K.</given-names></name>
+      </person-group>
+      <article-title>fastSF: A parallel code for computing the structure functions of turbulence</article-title>
+      <source>Journal of Open Source Software</source>
+      <year iso-8601-date="2021">2021</year>
+      <volume>6</volume>
+      <issue>57</issue>
+      <pub-id pub-id-type="doi">10.21105/joss.02185</pub-id>
+      <fpage>2185</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-Fuchs2022">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Fuchs</surname><given-names>André</given-names></name>
+        <name><surname>Kharche</surname><given-names>Swapnil</given-names></name>
+        <name><surname>Patil</surname><given-names>Aditya</given-names></name>
+        <name><surname>Friedrich</surname><given-names>Jan</given-names></name>
+        <name><surname>Wächter</surname><given-names>Matthias</given-names></name>
+        <name><surname>Peinke</surname><given-names>Joachim</given-names></name>
+      </person-group>
+      <article-title>An open source package to perform basic and advanced statistical analysis of turbulence data and other complex systems</article-title>
+      <source>Physics of Fluids</source>
+      <publisher-name>AIP Publishing LLC</publisher-name>
+      <year iso-8601-date="2022">2022</year>
+      <volume>34</volume>
+      <issue>10</issue>
+      <pub-id pub-id-type="doi">10.1063/5.0107974</pub-id>
+      <fpage>101801</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-Storer2023">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Storer</surname><given-names>Benjamin A.</given-names></name>
+        <name><surname>Aluie</surname><given-names>Hussein</given-names></name>
+      </person-group>
+      <article-title>FlowSieve: A coarse-graining utility for geophysical flows on the sphere</article-title>
+      <source>Journal of Open Source Software</source>
+      <year iso-8601-date="2023">2023</year>
+      <volume>8</volume>
+      <issue>84</issue>
+      <pub-id pub-id-type="doi">10.21105/joss.04277</pub-id>
+      <fpage>4277</fpage>
+      <lpage></lpage>
+    </element-citation>
+  </ref>
+</ref-list>
+</back>
+</article>

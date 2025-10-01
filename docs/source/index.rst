@@ -64,7 +64,7 @@ Documentation Contents
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
-
+   funding_team
    installation
    quickstart
    data_preparation

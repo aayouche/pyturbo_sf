@@ -16,12 +16,27 @@ authors:
     affiliation: '1'
     corresponding: true
   - name: Baylor Fox-Kemper
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0002-2871-2048
     affiliation: '1'
+  - name: Momme Hell
+    orcid: 0000-0002-5754-3925
+    affiliation: '2'
+  - name: Brodie Pearson
+    orcid: 0000-0002-0202-0481
+    affiliation: '3'
+  - name: Cassidy Wagner
+    orcid: 0000-0002-1186-2082
+    affiliation: '3'
+    
 affiliations:
- - name: Brown University
+ - name: Department of Earth, Environmental, and Planetary Sciences (DEEPS), Brown University, Providence, RI, USA
    index: 1
-date: 13 August 2025
+ - name: Woods Hole Oceanographic Institution, Woods Hole, MA, USA
+   index: 2
+ - name: Department of Earth, Environmental, and Planetary Sciences (DEEPS), Brown University, Providence, RI, USA
+   index: 3
+
+date: 30 September 2025
 bibliography: paper.bib
 ---
 
@@ -57,9 +72,9 @@ The package provides three main interfaces optimized for different dimensionalit
 
 ![Regional ocean model analysis using CROCO simulation data showing energy transfer mechanisms through combined velocity-scalar structure functions. The adaptive bootstrap algorithm efficiently handles the large 2D spatial dataset while providing robust uncertainty quantification for energy flux estimates.\label{fig:croco}](figs/figure2.png)
 
-![Atmospheric boundary layer turbulence analysis from DYCOMS large eddy simulation demonstrating 3D structure function capabilities. Volume-weighted binning accurately captures isotropic averaging in the 3D velocity field while bootstrap resampling provides statistical reliability for intermittency characterization.\label{fig:dycoms}](figs/figure3.png)
+![Regional ocean model analysis using CROCO simulation data showing energy transfer mechanisms through combined 2D velocity-scalar structure functions.\label{fig:croco2}](figs/figure3.png)
 
-![Performance benchmarks showing computational efficiency and scalability across dataset sizes and dimensions. Tests using DYCOMS data demonstrate near-linear scaling with parallel processing backends and memory-efficient algorithms that enable analysis of large 2D datasets on standard computational resources.\label{fig:performance}](figs/figure4.png)
+![Atmospheric boundary layer turbulence analysis from DYCOMS large eddy simulation demonstrating 3D structure function capabilities. Volume-weighted binning accurately captures isotropic averaging in the 3D velocity field while bootstrap resampling provides statistical reliability for intermittency characterization.\label{fig:dycoms}](figs/figure4.png)
 
 # Related work and scientific impact
 
