@@ -63,7 +63,7 @@ The Team
        <!-- Team Member 1 -->
        <div class="team-member">
            <a href="https://scholar.google.com/citations?user=ofpJ66IAAAAJ&hl=fr" target="_blank">
-               <img src="/home/aayouche/Documents/postdoc/coding/pyturbo_sf/docs/source/adam.jpg" alt="Adam Ayouche">
+               <img src="_static/adam.jpg" alt="Adam Ayouche">
                <h3>Adam Ayouche</h3>
            </a>
        </div>
@@ -71,7 +71,7 @@ The Team
        <!-- Team Member 2 -->
        <div class="team-member">
            <a href="https://fox-kemper.com" target="_blank">
-               <img src="/home/aayouche/Documents/postdoc/coding/pyturbo_sf/docs/source/baylor.jpg" alt="Baylor Fox-Kemper">
+               <img src="_static/baylor.jpg" alt="Baylor Fox-Kemper">
                <h3>Baylor Fox-Kemper</h3>
            </a>
        </div>
@@ -79,7 +79,7 @@ The Team
        <!-- Team Member 3 -->
        <div class="team-member">
            <a href="https://mochell.github.io" target="_blank">
-               <img src="/home/aayouche/Documents/postdoc/coding/pyturbo_sf/docs/source/momme.jpg" alt="Momme Hell">
+               <img src="_static/momme.jpg" alt="Momme Hell">
                <h3>Momme Hell</h3>
            </a>
        </div>
@@ -87,7 +87,7 @@ The Team
        <!-- Team Member 4 -->
        <div class="team-member">
            <a href="https://scholar.google.com/citations?user=zhETsewAAAAJ&hl=en" target="_blank">
-               <img src="/home/aayouche/Documents/postdoc/coding/pyturbo_sf/docs/source/brodie.jpg" alt="Brodie Pearson">
+               <img src="_static/brodie.jpg" alt="Brodie Pearson">
                <h3>Brodie Pearson</h3>
            </a>
        </div>
@@ -95,7 +95,7 @@ The Team
        <!-- Team Member 4 -->
        <div class="team-member">
            <a href="https://github.com/cassidymwagner" target="_blank">
-               <img src="/home/aayouche/Documents/postdoc/coding/pyturbo_sf/docs/source/cassidy.png" alt="Cassidy Wagner">
+               <img src="_static/cassidy.png" alt="Cassidy Wagner">
                <h3>Cassidy Wagner</h3>
            </a>
        </div>
