@@ -12,7 +12,7 @@ tags:
   - geophysical flows
 authors:
   - name: Adam Ayouche
-    orcid: 0000-0000-0000-0000
+    orcid: 0009-0001-9075-5911
     affiliation: '1'
     corresponding: true
   - name: Baylor Fox-Kemper
