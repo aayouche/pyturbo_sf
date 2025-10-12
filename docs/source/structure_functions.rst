@@ -10,9 +10,9 @@ Structure functions are fundamental tools in turbulence analysis that measure th
 
 .. math::
 
-   S_n(r) = \langle |\phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x})|^n \rangle_{\mathbf{x}}
+   S_n(r) = \langle |\phi(\vec{x} + \vec{r}) - \phi(\vec{x})|^n \rangle_{\vec{x}}
 
-where :math:`\phi` represents the field variable, :math:`\mathbf{r}` is the separation vector, and :math:`\langle \cdot \rangle_{\mathbf{x}}` denotes spatial averaging.
+where :math:`\phi` represents the field variable, :math:`\vec{r}` is the separation vector, and :math:`\langle \cdot \rangle_{\vec{x}}` denotes spatial averaging.
 
 1D Structure Functions
 ----------------------
@@ -22,11 +22,11 @@ For 1D data, PyTurbo_SF supports several types of structure functions:
 Scalar Structure Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For a scalar field :math:`\phi(x)`:
+For a scalar field :math:`f(x)`:
 
 .. math::
 
-   S_{\phi,n}(r) = \langle |\phi(x + r) - \phi(x)|^n \rangle_{x}
+   S_n(r) = \langle |f(x + r) - f(x)|^n \rangle_{x}
 
 where :math:`r` is the separation distance.
 
@@ -35,11 +35,11 @@ where :math:`r` is the separation distance.
 Scalar-Scalar Structure Function  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For two scalar fields :math:`\phi_1(x)` and :math:`\phi_2(x)`:
+For two scalar fields :math:`f(x)` and :math:`g(x)`:
 
 .. math::
 
-   S_{\phi_1\phi_2,n}(r) = \langle |(\phi_1(x + r) - \phi_1(x))(\phi_2(x + r) - \phi_2(x))|^n \rangle_{x}
+   S_{n,k}(r) = \langle |f(x + r) - f(x)|^n \cdot |g(x + r) - g(x)|^k \rangle_{x}
 
 **Usage**: ``fun='scalar_scalar'``
 
@@ -51,13 +51,13 @@ For 2D fields, PyTurbo_SF provides multiple types of structure functions:
 Longitudinal Structure Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For velocity components :math:`\mathbf{u} = (u, v)`:
+For velocity components :math:`\vec{u} = (u, v)`:
 
 .. math::
 
-   S_{L,n}(r) = \langle |(\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot \hat{\mathbf{r}}|^n \rangle_{\mathbf{x}}
+   S_{\parallel,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \rangle_{\vec{x}}
 
-where :math:`\hat{\mathbf{r}} = \mathbf{r}/|\mathbf{r}|` is the unit vector in the direction of separation.
+where :math:`\vec{u} = (u, v)` and :math:`\vec{r}` is the separation vector.
 
 **Usage**: ``fun='longitudinal'``
 
@@ -68,9 +68,7 @@ The transverse structure function measures the component of velocity difference 
 
 .. math::
 
-   S_{T,n}(r) = \langle |(\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot \hat{\mathbf{n}}|^n \rangle_{\mathbf{x}}
-
-where :math:`\hat{\mathbf{n}}` is perpendicular to :math:`\hat{\mathbf{r}}`.
+   S_{\perp,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \times \frac{\vec{r}}{|\vec{r}|})^n \rangle_{\vec{x}}
 
 **Usage**: ``fun='transverse'``
 
@@ -81,7 +79,7 @@ The default velocity structure function computes the sum of the structure functi
 
 .. math::
 
-   S_{vel,n}(r) = \langle |(u(\mathbf{x} + \mathbf{r}) - u(\mathbf{x}))|^n + |(v(\mathbf{x} + \mathbf{r}) - v(\mathbf{x}))|^n \rangle_{\mathbf{x}}
+   S_{n}(r) = \langle |u(\vec{x} + \vec{r}) - u(\vec{x})|^n + |v(\vec{x} + \vec{r}) - v(\vec{x})|^n \rangle_{\vec{x}}
 
 where :math:`u` and :math:`v` are the velocity components.
 
@@ -94,7 +92,7 @@ Similar to 1D but for 2D scalar field:
 
 .. math::
 
-   S_{\phi,n}(\mathbf{r}) = \langle |\phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x})|^n \rangle_{\mathbf{x}}
+   S_n(r) = \langle |f(\vec{x} + \vec{r}) - f(\vec{x})|^n \rangle_{\vec{x}}
 
 **Usage**: ``fun='scalar'``
 
@@ -105,7 +103,7 @@ For two scalar fields in 2D:
 
 .. math::
 
-   S_{\phi_1\phi_2,n}(\mathbf{r}) = \langle |(\phi_1(\mathbf{x} + \mathbf{r}) - \phi_1(\mathbf{x}))(\phi_2(\mathbf{x} + \mathbf{r}) - \phi_2(\mathbf{x}))|^n \rangle_{\mathbf{x}}
+   S_{n,k}(r) = \langle |f(\vec{x} + \vec{r}) - f(\vec{x})|^n \cdot |g(\vec{x} + \vec{r}) - g(\vec{x})|^k \rangle_{\vec{x}}
 
 **Usage**: ``fun='scalar_scalar'``
 
@@ -116,7 +114,7 @@ Combined Structure Functions (2D)
 
 .. math::
 
-   S_{LT,n}(r) = S_{L,n}(r) + S_{T,n}(r)
+   S_{\parallel\perp,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \cdot ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \times \frac{\vec{r}}{|\vec{r}|})^k \rangle_{\vec{x}}
 
 **Usage**: ``fun='longitudinal_transverse'``
 
@@ -124,7 +122,7 @@ Combined Structure Functions (2D)
 
 .. math::
 
-   S_{L\phi,n}(r) = \langle |(\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot \hat{\mathbf{r}} \cdot (\phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x}))|^n \rangle_{\mathbf{x}}
+   S_{\parallel S,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \cdot |f(\vec{x} + \vec{r}) - f(\vec{x})|^k \rangle_{\vec{x}}
 
 **Usage**: ``fun='longitudinal_scalar'``
 
@@ -132,7 +130,7 @@ Combined Structure Functions (2D)
 
 .. math::
 
-   S_{T\phi,n}(r) = \langle |(\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot \hat{\mathbf{n}} \cdot (\phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x}))|^n \rangle_{\mathbf{x}}
+   S_{\perp S,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \times \frac{\vec{r}}{|\vec{r}|})^n \cdot |f(\vec{x} + \vec{r}) - f(\vec{x})|^k \rangle_{\vec{x}}
 
 **Usage**: ``fun='transverse_scalar'``
 
@@ -143,7 +141,7 @@ Advanced Structure Functions (2D)
 
 .. math::
 
-   S_{adv,n}(r) = \langle ((\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot (\mathbf{u}_{adv}(\mathbf{x} + \mathbf{r}) - \mathbf{u}_{adv}(\mathbf{x})))^n \rangle_{\mathbf{x}}
+   S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}
 
 **Usage**: ``fun='advective'``
 
@@ -151,25 +149,25 @@ Advanced Structure Functions (2D)
 
 .. math::
 
-   S_{pw,n}(r) = \langle ((\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot (\mathbf{p}(\mathbf{x} + \mathbf{r}) - \mathbf{p}(\mathbf{x})))^n \rangle_{\mathbf{x}}
+   S_{pw,n}(r) = \langle (\nabla \cdot (\delta P \cdot \delta\vec{u}))^n \rangle_{\vec{x}}
 
-where :math:`\mathbf{p}` represents the pressure field.
+where :math:`\delta P = P(\vec{x} + \vec{r}) - P(\vec{x})` is the pressure increment and :math:`\delta\vec{u}` is the velocity increment.
 
 **Usage**: ``fun='pressure_work'``
 
 3D Structure Functions
 ----------------------
 
-PyTurbo_SF extends the structure functions to 3D fields with velocity components :math:`\mathbf{u} = (u, v, w)`.
+PyTurbo_SF extends the structure functions to 3D fields with velocity components :math:`\vec{u} = (u, v, w)`.
 
 Longitudinal Structure Function (3D)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. math::
 
-   S_{L,n}(r) = \langle |(\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})) \cdot \hat{\mathbf{r}}|^n \rangle_{\mathbf{x}}
+   S_{\parallel,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \rangle_{\vec{x}}
 
-where :math:`\hat{\mathbf{r}} = \mathbf{r}/|\mathbf{r}|` is the unit vector in the direction of separation.
+where :math:`\vec{u} = (u, v, w)` and :math:`\vec{r}` is the 3D separation vector.
 
 **Usage**: ``fun='longitudinal'``
 
@@ -180,7 +178,7 @@ Sums the structure functions for each velocity component:
 
 .. math::
 
-   S_{vel,n}(r) = \langle |(u(\mathbf{x} + \mathbf{r}) - u(\mathbf{x}))|^n + |(v(\mathbf{x} + \mathbf{r}) - v(\mathbf{x}))|^n + |(w(\mathbf{x} + \mathbf{r}) - w(\mathbf{x}))|^n \rangle_{\mathbf{x}}
+   S_{n}(r) = \langle |u(\vec{x} + \vec{r}) - u(\vec{x})|^n + |v(\vec{x} + \vec{r}) - v(\vec{x})|^n + |w(\vec{x} + \vec{r}) - w(\vec{x})|^n \rangle_{\vec{x}}
 
 **Usage**: ``fun='default_vel'``
 
@@ -217,7 +215,18 @@ Advanced 3D Functions
 **Advanced structure functions**:
 
 * **Advective**: ``fun='advective'``
+
+.. math::
+
+   S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}
+
 * **Pressure work**: ``fun='pressure_work'``
+
+.. math::
+
+   S_{pw,n}(r) = \langle (\nabla \cdot (\delta P \cdot \delta\vec{u}))^n \rangle_{\vec{x}}
+
+where :math:`\delta P = P(\vec{x} + \vec{r}) - P(\vec{x})` is the pressure increment and :math:`\delta\vec{u}` is the velocity increment vector.
 
 Function Reference Table
 ------------------------
