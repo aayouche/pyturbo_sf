@@ -34,6 +34,7 @@ extensions = [
 # AUTODOC MOCK IMPORTS - Critical for building docs without all dependencies
 # =============================================================================
 autodoc_mock_imports = [
+    'numpy.lib.stride_tricks',
     'numpy',
     'scipy',
     'xarray',
@@ -42,6 +43,7 @@ autodoc_mock_imports = [
     'joblib',
     'pandas',
     'numba',
+    'stats',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
