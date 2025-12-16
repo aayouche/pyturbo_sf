@@ -12,6 +12,7 @@ This document provides the mathematical foundations and API reference for struct
 
 ----
 
+<<<<<<< HEAD
 Mathematical Foundations
 ========================
 
@@ -19,10 +20,50 @@ Standard Structure Functions
 -----------------------------
 
 Structure functions measure statistical properties of turbulent field increments across separation distances.
+=======
+   S_n(r) = \langle |\phi(\vec{x} + \vec{r}) - \phi(\vec{x})|^n \rangle_{\vec{x}}
+
+where :math:`\phi` represents the field variable, :math:`\vec{r}` is the separation vector, and :math:`\langle \cdot \rangle_{\vec{x}}` denotes spatial averaging.
+
+1D Structure Functions
+----------------------
+
+For 1D data, PyTurbo_SF supports several types of structure functions:
+
+Scalar Structure Function
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a scalar field :math:`f(x)`:
+
+.. math::
+
+   S_n(r) = \langle |f(x + r) - f(x)|^n \rangle_{x}
+
+where :math:`r` is the separation distance.
+
+**Usage**: ``fun='scalar'``
+
+Scalar-Scalar Structure Function  
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For two scalar fields :math:`f(x)` and :math:`g(x)`:
+
+.. math::
+
+   S_{n,k}(r) = \langle |f(x + r) - f(x)|^n \cdot |g(x + r) - g(x)|^k \rangle_{x}
+
+**Usage**: ``fun='scalar_scalar'``
+
+2D Structure Functions
+----------------------
+
+For 2D fields, PyTurbo_SF provides multiple types of structure functions:
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 Longitudinal Structure Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+<<<<<<< HEAD
 The longitudinal structure function projects velocity increments onto the separation vector:
 
 .. math::
@@ -34,6 +75,15 @@ where the longitudinal velocity increment is:
 .. math::
 
    \delta u_L(\mathbf{x}, \mathbf{r}) = \left[ \mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x}) \right] \cdot \hat{\mathbf{r}}
+=======
+For velocity components :math:`\vec{u} = (u, v)`:
+
+.. math::
+
+   S_{\parallel,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \rangle_{\vec{x}}
+
+where :math:`\vec{u} = (u, v)` and :math:`\vec{r}` is the separation vector.
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 
 Transverse Structure Function
@@ -43,6 +93,7 @@ The transverse structure function uses the perpendicular velocity component:
 
 .. math::
 
+<<<<<<< HEAD
    D_{TT}(\mathbf{r}) = \left\langle \left[ \delta u_T(\mathbf{x}, \mathbf{r}) \right]^2 \right\rangle
 
 where the transverse velocity increment is:
@@ -50,6 +101,20 @@ where the transverse velocity increment is:
 .. math::
 
    \delta u_T(\mathbf{x}, \mathbf{r}) = \left| \left[ \mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x}) \right] - \delta u_L \hat{\mathbf{r}} \right|
+=======
+   S_{\perp,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \times \frac{\vec{r}}{|\vec{r}|})^n \rangle_{\vec{x}}
+
+**Usage**: ``fun='transverse'``
+
+Default Velocity Structure Function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The default velocity structure function computes the sum of the structure functions for each velocity component's differences:
+
+.. math::
+
+   S_{n}(r) = \langle |u(\vec{x} + \vec{r}) - u(\vec{x})|^n + |v(\vec{x} + \vec{r}) - v(\vec{x})|^n \rangle_{\vec{x}}
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 
 Advective (Third-Order) Structure Function
@@ -59,7 +124,11 @@ The advective (third-order longitudinal) structure function is fundamental for e
 
 .. math::
 
+<<<<<<< HEAD
    D_{LLL}(\mathbf{r}) = \left\langle \left[ \delta u_L(\mathbf{x}, \mathbf{r}) \right]^3 \right\rangle
+=======
+   S_n(r) = \langle |f(\vec{x} + \vec{r}) - f(\vec{x})|^n \rangle_{\vec{x}}
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 .. important::
 
@@ -73,17 +142,93 @@ For scalar fields (e.g., temperature, concentration):
 
 .. math::
 
+<<<<<<< HEAD
    D_{\phi\phi}(r) = \left\langle \left[ \phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x}) \right]^2 \right\rangle
+=======
+   S_{n,k}(r) = \langle |f(\vec{x} + \vec{r}) - f(\vec{x})|^n \cdot |g(\vec{x} + \vec{r}) - g(\vec{x})|^k \rangle_{\vec{x}}
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 
+<<<<<<< HEAD
 Scalar-Scalar (Mixed) Structure Function
+=======
+Combined Structure Functions (2D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Longitudinal-Transverse**: Combines longitudinal and transverse components:
+
+.. math::
+
+   S_{\parallel\perp,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \cdot ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \times \frac{\vec{r}}{|\vec{r}|})^k \rangle_{\vec{x}}
+
+**Usage**: ``fun='longitudinal_transverse'``
+
+**Longitudinal-Scalar**: Combines longitudinal velocity with scalar field:
+
+.. math::
+
+   S_{\parallel S,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \cdot |f(\vec{x} + \vec{r}) - f(\vec{x})|^k \rangle_{\vec{x}}
+
+**Usage**: ``fun='longitudinal_scalar'``
+
+**Transverse-Scalar**: Combines transverse velocity with scalar field:
+
+.. math::
+
+   S_{\perp S,n,k}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \times \frac{\vec{r}}{|\vec{r}|})^n \cdot |f(\vec{x} + \vec{r}) - f(\vec{x})|^k \rangle_{\vec{x}}
+
+**Usage**: ``fun='transverse_scalar'``
+
+Advanced Structure Functions (2D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Advective Structure Function**: Combines velocity differences with advective velocity differences:
+
+.. math::
+
+   S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}
+
+**Usage**: ``fun='advective'``
+
+**Pressure Work Structure Function**: Measures the structure function of pressure-velocity work term:
+
+.. math::
+
+   S_{pw,n}(r) = \langle (\nabla \cdot (\delta P \cdot \delta\vec{u}))^n \rangle_{\vec{x}}
+
+where :math:`\delta P = P(\vec{x} + \vec{r}) - P(\vec{x})` is the pressure increment and :math:`\delta\vec{u}` is the velocity increment.
+
+**Usage**: ``fun='pressure_work'``
+
+3D Structure Functions
+----------------------
+
+PyTurbo_SF extends the structure functions to 3D fields with velocity components :math:`\vec{u} = (u, v, w)`.
+
+Longitudinal Structure Function (3D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. math::
+
+   S_{\parallel,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot \frac{\vec{r}}{|\vec{r}|})^n \rangle_{\vec{x}}
+
+where :math:`\vec{u} = (u, v, w)` and :math:`\vec{r}` is the 3D separation vector.
+
+**Usage**: ``fun='longitudinal'``
+
+Default Velocity Structure Function (3D)
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Cross-correlation between two scalar fields:
 
 .. math::
 
+<<<<<<< HEAD
    D_{\phi\psi}(r) = \left\langle \left[ \phi(\mathbf{x} + \mathbf{r}) - \phi(\mathbf{x}) \right] \left[ \psi(\mathbf{x} + \mathbf{r}) - \psi(\mathbf{x}) \right] \right\rangle
+=======
+   S_{n}(r) = \langle |u(\vec{x} + \vec{r}) - u(\vec{x})|^n + |v(\vec{x} + \vec{r}) - v(\vec{x})|^n + |w(\vec{x} + \vec{r}) - w(\vec{x})|^n \rangle_{\vec{x}}
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 
 Longitudinal-Transverse Structure Function
@@ -106,10 +251,29 @@ Coupling between velocity and scalar increments:
    D_{L\phi}(\mathbf{r}) = \left\langle \delta u_L(\mathbf{x}, \mathbf{r}) \cdot \delta\phi(\mathbf{x}, \mathbf{r}) \right\rangle
 
 
+<<<<<<< HEAD
 ----
 
 Bessel Energy Flux Decomposition
 ================================
+=======
+* **Advective**: ``fun='advective'``
+
+.. math::
+
+   S_{adv,n}(r) = \langle ((\vec{u}(\vec{x} + \vec{r}) - \vec{u}(\vec{x})) \cdot (\vec{u}_{adv}(\vec{x} + \vec{r}) - \vec{u}_{adv}(\vec{x})))^n \rangle_{\vec{x}}
+
+* **Pressure work**: ``fun='pressure_work'``
+
+.. math::
+
+   S_{pw,n}(r) = \langle (\nabla \cdot (\delta P \cdot \delta\vec{u}))^n \rangle_{\vec{x}}
+
+where :math:`\delta P = P(\vec{x} + \vec{r}) - P(\vec{x})` is the pressure increment and :math:`\delta\vec{u}` is the velocity increment vector.
+
+Function Reference Table
+------------------------
+>>>>>>> a204517c41958803e48d06e78c5c6b50e8b2929d
 
 .. warning::
 
