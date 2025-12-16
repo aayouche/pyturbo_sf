@@ -1,7 +1,7 @@
 API Reference
 =============
 
-This section contains the complete API reference for PyTurbo_SF.
+This section contains the complete API reference for PyTurbo_SF, automatically generated from the source code docstrings.
 
 .. toctree::
    :maxdepth: 4

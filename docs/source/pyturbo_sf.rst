@@ -43,9 +43,9 @@ Submodules
    pyturbo_sf.one_dimensional
    pyturbo_sf.two_dimensional
    pyturbo_sf.three_dimensional
+   pyturbo_sf.structure_functions_module
    pyturbo_sf.core
    pyturbo_sf.utils
-   pyturbo_sf.structure_functions
    pyturbo_sf.binning_tools
    pyturbo_sf.bootstrapping_tools
    pyturbo_sf.isotropy_tools
