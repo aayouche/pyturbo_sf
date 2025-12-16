@@ -71,13 +71,21 @@ Uses the perpendicular velocity component:
 
 where :math:`\delta u_T = |[\mathbf{u}(\mathbf{x} + \mathbf{r}) - \mathbf{u}(\mathbf{x})] \times \hat{\mathbf{r}}|`
 
-**Advective Structure Function** (``fun='advective'``)
+**Default Velocity Structure Function** (``fun='default_vel'``)
 
-Third-order longitudinal structure function for energy flux:
+Sum of individual velocity component structure functions:
 
 .. math::
 
-   D_{LLL}(\mathbf{r}) = \left\langle \left[ \delta u_L \right]^3 \right\rangle
+   S_n(r) = \langle |u(\vec{x} + \vec{r}) - u(\vec{x})|^n + |v(\vec{x} + \vec{r}) - v(\vec{x})|^n \rangle
+
+**Advective Structure Function** (``fun='advective'``)
+
+Third-order structure function including stress tensor components for energy flux:
+
+.. math::
+
+   D_{adv}(\mathbf{r}) = \left\langle \delta u_L \cdot \delta \tau_L \right\rangle
 
 **Scalar Structure Function** (``fun='scalar'``)
 
@@ -118,6 +126,14 @@ For 3D velocity fields :math:`\vec{u} = (u, v, w)`:
 **Longitudinal** (``fun='longitudinal'``)
 
 Requires all three velocity components ``['u', 'v', 'w']``.
+
+**Default Velocity** (``fun='default_vel'``)
+
+Sum of all three velocity component structure functions:
+
+.. math::
+
+   S_n(r) = \langle |u|^n + |v|^n + |w|^n \rangle
 
 **Transverse** (plane-specific)
 
@@ -304,67 +320,64 @@ Function Reference
 ------------------------
 
 .. list-table::
-   :widths: 22 8 22 8 10 10 10
+   :widths: 24 30 8 10 10 10
    :header-rows: 1
 
    * - ``fun``
-     - Order
      - ``variables_names``
      - 1D
      - 2D bin
      - 2D iso
      - 2D flux
    * - ``scalar``
-     - 2
      - ``['theta']``
      - Yes
      - Yes
      - Yes
      - No
    * - ``scalar_scalar``
-     - (1,1)
      - ``['phi', 'psi']``
      - Yes
      - Yes
      - Yes
      - Yes
+   * - ``default_vel``
+     - ``['u', 'v']``
+     - No
+     - Yes
+     - Yes
+     - No
    * - ``longitudinal``
-     - 2
      - ``['u', 'v']``
      - No
      - Yes
      - Yes
      - No
    * - ``transverse``
-     - 2
      - ``['u', 'v']``
      - No
      - Yes
      - Yes
      - No
    * - ``advective``
-     - 3
-     - ``['u', 'v']``
+     - ``['u', 'v', 'tau1', 'tau2']``
      - No
      - Yes
      - Yes
      - Yes
    * - ``longitudinal_transverse``
-     - (1,1)
      - ``['u', 'v']``
      - No
      - Yes
      - Yes
      - No
    * - ``longitudinal_scalar``
-     - (1,1)
      - ``['u', 'v', 'theta']``
      - No
      - Yes
      - Yes
      - No
    * - ``transverse_scalar``
-     - (1,1)
      - ``['u', 'v', 'theta']``
      - No
      - Yes
@@ -376,76 +389,70 @@ Function Reference
 -----------------
 
 .. list-table::
-   :widths: 28 8 28 10 10
+   :widths: 30 38 10 10
    :header-rows: 1
 
    * - ``fun``
-     - Order
      - ``variables_names``
      - 3D bin
      - 3D iso
    * - ``scalar``
-     - 2
      - ``['theta']``
      - Yes
      - Yes
    * - ``scalar_scalar``
-     - (1,1)
      - ``['phi', 'psi']``
      - Yes
      - Yes
-   * - ``longitudinal``
-     - 2
+   * - ``default_vel``
      - ``['u', 'v', 'w']``
      - Yes
      - Yes
+   * - ``longitudinal``
+     - ``['u', 'v', 'w']``
+     - Yes
+     - Yes
+   * - ``advective``
+     - ``['u', 'v', 'w', 'tau1', 'tau2', 'tau3']``
+     - Yes
+     - Yes
    * - ``longitudinal_scalar``
-     - (1,1)
      - ``['u', 'v', 'w', 'theta']``
      - Yes
      - Yes
    * - ``transverse_ij``
-     - 2
      - ``['u', 'v']`` (xy-plane)
      - Yes
      - Yes
    * - ``transverse_ik``
-     - 2
      - ``['u', 'w']`` (xz-plane)
      - Yes
      - Yes
    * - ``transverse_jk``
-     - 2
      - ``['v', 'w']`` (yz-plane)
      - Yes
      - Yes
    * - ``longitudinal_transverse_ij``
-     - (1,1)
      - ``['u', 'v']``
      - Yes
      - Yes
    * - ``longitudinal_transverse_ik``
-     - (1,1)
      - ``['u', 'w']``
      - Yes
      - Yes
    * - ``longitudinal_transverse_jk``
-     - (1,1)
      - ``['v', 'w']``
      - Yes
      - Yes
    * - ``transverse_ij_scalar``
-     - (1,1)
      - ``['u', 'v', 'theta']``
      - Yes
      - Yes
    * - ``transverse_ik_scalar``
-     - (1,1)
      - ``['u', 'w', 'theta']``
      - Yes
      - Yes
    * - ``transverse_jk_scalar``
-     - (1,1)
      - ``['v', 'w', 'theta']``
      - Yes
      - Yes
@@ -633,7 +640,7 @@ get_energy_flux_2d
 
    get_energy_flux_2d(
        ds,
-       variables_names,             # ['u', 'v'] for advective
+       variables_names,             # ['u', 'v', 'tau1', 'tau2'] for advective
        order=3.0,
        wavenumbers=None,
        r_bins=None,
@@ -780,7 +787,7 @@ Energy Flux (2D)
    
    ds_flux = get_energy_flux_2d(
        ds,
-       variables_names=['u', 'v'],
+       variables_names=['u', 'v', 'tau1', 'tau2'],
        order=3.0,
        fun='advective',
        bootsize={'y': 64, 'x': 64}

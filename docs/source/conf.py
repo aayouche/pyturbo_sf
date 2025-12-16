@@ -16,7 +16,6 @@ version = '1.0.5'
 # -- General configuration ---------------------------------------------------
 extensions = [
     'sphinx.ext.autodoc',
-    # 'autoapi.extension',  # REMOVED - using standard autodoc instead
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.mathjax',
@@ -28,7 +27,21 @@ extensions = [
     'nbsphinx',
     'sphinx_copybutton',
     'sphinx_design',
-    'sphinx.ext.autosummary',  # Added for better API documentation
+    'sphinx.ext.autosummary',
+]
+
+# =============================================================================
+# AUTODOC MOCK IMPORTS - Critical for building docs without all dependencies
+# =============================================================================
+autodoc_mock_imports = [
+    'numpy',
+    'scipy',
+    'xarray',
+    'matplotlib',
+    'bottleneck',
+    'joblib',
+    'pandas',
+    'numba',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -121,17 +134,18 @@ epub_exclude_files = ['search.html']
 
 # -- Extension configuration -------------------------------------------------
 
-# Autodoc configuration (replaces AutoAPI)
+# Autodoc configuration
 autodoc_default_options = {
     'members': True,
     'member-order': 'bysource',
     'special-members': '__init__',
     'undoc-members': True,
-    'exclude-members': '__weakref__'
+    'exclude-members': '__weakref__',
+    'show-inheritance': True,
 }
 
 # Autosummary configuration
-autosummary_generate = True  # Turn on sphinx.ext.autosummary
+autosummary_generate = True
 autosummary_imported_members = True
 
 # Napoleon settings (for Google/NumPy style docstrings)
@@ -196,3 +210,6 @@ copybutton_prompt_is_regexp = True
 
 # Todo configuration
 todo_include_todos = True
+
+# Suppress warnings for missing references (optional)
+suppress_warnings = ['ref.option']

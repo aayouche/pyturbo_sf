@@ -6,7 +6,7 @@ nbsphinx>=0.9
 ipython>=8.0
 pandoc>=2.0
 
-# Scientific computing dependencies for examples
+# Scientific computing dependencies (needed for autodoc imports)
 numpy>=1.24
 xarray>=2023.0
 matplotlib>=3.7
