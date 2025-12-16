@@ -320,7 +320,7 @@ Function Reference
 ------------------------
 
 .. list-table::
-   :widths: 24 30 8 10 10 10
+   :widths: 22 42 7 9 9 9
    :header-rows: 1
 
    * - ``fun``
@@ -331,65 +331,65 @@ Function Reference
      - 2D flux
    * - ``scalar``
      - ``['theta']``
-     - Yes
-     - Yes
-     - Yes
-     - No
+     - ✓
+     - ✓
+     - ✓
+     - 
    * - ``scalar_scalar``
      - ``['phi', 'psi']``
-     - Yes
-     - Yes
-     - Yes
-     - Yes
+     - ✓
+     - ✓
+     - ✓
+     - ✓
    * - ``default_vel``
-     - ``['u', 'v']``
-     - No
-     - Yes
-     - Yes
-     - No
+     - ``['u', 'v']`` or ``['u', 'v', 'w']``
+     - 
+     - ✓
+     - ✓
+     - 
    * - ``longitudinal``
      - ``['u', 'v']``
-     - No
-     - Yes
-     - Yes
-     - No
+     - 
+     - ✓
+     - ✓
+     - 
    * - ``transverse``
      - ``['u', 'v']``
-     - No
-     - Yes
-     - Yes
-     - No
+     - 
+     - ✓
+     - ✓
+     - 
    * - ``advective``
-     - ``['u', 'v', 'tau1', 'tau2']``
-     - No
-     - Yes
-     - Yes
-     - Yes
+     - ``['u', 'v', 'tau1', 'tau2']`` or ``['u', 'v', 'w', 'tau1', 'tau2', 'tau3']``
+     - 
+     - ✓
+     - ✓
+     - ✓
    * - ``longitudinal_transverse``
      - ``['u', 'v']``
-     - No
-     - Yes
-     - Yes
-     - No
+     - 
+     - ✓
+     - ✓
+     - 
    * - ``longitudinal_scalar``
      - ``['u', 'v', 'theta']``
-     - No
-     - Yes
-     - Yes
-     - No
+     - 
+     - ✓
+     - ✓
+     - 
    * - ``transverse_scalar``
      - ``['u', 'v', 'theta']``
-     - No
-     - Yes
-     - Yes
-     - No
+     - 
+     - ✓
+     - ✓
+     - 
 
 
 3D Function Types
 -----------------
 
 .. list-table::
-   :widths: 30 38 10 10
+   :widths: 34 42 10 10
    :header-rows: 1
 
    * - ``fun``
@@ -398,64 +398,60 @@ Function Reference
      - 3D iso
    * - ``scalar``
      - ``['theta']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``scalar_scalar``
      - ``['phi', 'psi']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``default_vel``
      - ``['u', 'v', 'w']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``longitudinal``
      - ``['u', 'v', 'w']``
-     - Yes
-     - Yes
-   * - ``advective``
-     - ``['u', 'v', 'w', 'tau1', 'tau2', 'tau3']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``longitudinal_scalar``
      - ``['u', 'v', 'w', 'theta']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``transverse_ij``
      - ``['u', 'v']`` (xy-plane)
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``transverse_ik``
      - ``['u', 'w']`` (xz-plane)
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``transverse_jk``
      - ``['v', 'w']`` (yz-plane)
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``longitudinal_transverse_ij``
      - ``['u', 'v']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``longitudinal_transverse_ik``
      - ``['u', 'w']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``longitudinal_transverse_jk``
      - ``['v', 'w']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``transverse_ij_scalar``
      - ``['u', 'v', 'theta']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``transverse_ik_scalar``
      - ``['u', 'w', 'theta']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
    * - ``transverse_jk_scalar``
      - ``['v', 'w', 'theta']``
-     - Yes
-     - Yes
+     - ✓
+     - ✓
 
 .. note::
 
@@ -640,7 +636,7 @@ get_energy_flux_2d
 
    get_energy_flux_2d(
        ds,
-       variables_names,             # ['u', 'v', 'tau1', 'tau2'] for advective
+       variables_names,             # ['u', 'v', 'tau1', 'tau2'] or ['u', 'v', 'w', 'tau1', 'tau2', 'tau3']
        order=3.0,
        wavenumbers=None,
        r_bins=None,
