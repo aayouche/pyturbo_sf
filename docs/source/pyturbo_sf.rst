@@ -1,52 +1,93 @@
 pyturbo\_sf package
 ===================
 
-.. automodule:: pyturbo_sf
+Submodules
+----------
+
+pyturbo\_sf.bessel\_tools module
+--------------------------------
+
+.. automodule:: pyturbo_sf.bessel_tools
    :members:
    :undoc-members:
    :show-inheritance:
 
-Main API Functions
-------------------
+pyturbo\_sf.binning\_tools module
+---------------------------------
 
-The following functions are available at the package level:
+.. automodule:: pyturbo_sf.binning_tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. currentmodule:: pyturbo_sf
+pyturbo\_sf.bootstrapping\_tools module
+---------------------------------------
 
-1D Structure Functions
-~~~~~~~~~~~~~~~~~~~~~~
+.. automodule:: pyturbo_sf.bootstrapping_tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. autofunction:: bin_sf_1d
+pyturbo\_sf.core module
+-----------------------
 
-2D Structure Functions
-~~~~~~~~~~~~~~~~~~~~~~
+.. automodule:: pyturbo_sf.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. autofunction:: bin_sf_2d
+pyturbo\_sf.isotropy\_tools module
+----------------------------------
 
-.. autofunction:: get_isotropic_sf_2d
+.. automodule:: pyturbo_sf.isotropy_tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. autofunction:: get_energy_flux_2d
+pyturbo\_sf.one\_dimensional module
+-----------------------------------
 
-3D Structure Functions
-~~~~~~~~~~~~~~~~~~~~~~
+.. automodule:: pyturbo_sf.one_dimensional
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. autofunction:: bin_sf_3d
+pyturbo\_sf.structure\_functions module
+---------------------------------------
 
-.. autofunction:: get_isotropic_sf_3d
+.. automodule:: pyturbo_sf.structure_functions
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
+pyturbo\_sf.three\_dimensional module
+-------------------------------------
 
-Submodules
-----------
+.. automodule:: pyturbo_sf.three_dimensional
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. toctree::
-   :maxdepth: 2
+pyturbo\_sf.two\_dimensional module
+-----------------------------------
 
-   pyturbo_sf.one_dimensional
-   pyturbo_sf.two_dimensional
-   pyturbo_sf.three_dimensional
-   pyturbo_sf.core
-   pyturbo_sf.utils
-   pyturbo_sf.binning_tools
-   pyturbo_sf.bootstrapping_tools
-   pyturbo_sf.isotropy_tools
-   pyturbo_sf.bessel_tools
+.. automodule:: pyturbo_sf.two_dimensional
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pyturbo\_sf.utils module
+------------------------
+
+.. automodule:: pyturbo_sf.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: pyturbo_sf
+   :members:
+   :undoc-members:
+   :show-inheritance:
