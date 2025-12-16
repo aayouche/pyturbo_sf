@@ -32,18 +32,40 @@ extensions = [
 
 # =============================================================================
 # AUTODOC MOCK IMPORTS - Critical for building docs without all dependencies
+# ORDER MATTERS: Parent modules must come before submodules!
 # =============================================================================
 autodoc_mock_imports = [
-    'numpy.lib.stride_tricks',
+    # NumPy - parent first, then submodules
     'numpy',
+    'numpy.lib',
+    'numpy.lib.stride_tricks',  # Used by two_dimensional, three_dimensional, isotropy_tools, bessel_tools
+    'numpy.fft',
+    'numpy.linalg',
+    'numpy.random',
+    # SciPy - parent first, then ALL submodules used
     'scipy',
+    'scipy.stats',        # Used by two_dimensional, isotropy_tools, bessel_tools, binning_tools
+    'scipy.special',      # Used by two_dimensional, bessel_tools (jv function)
+    'scipy.interpolate',
+    'scipy.ndimage',
+    'scipy.integrate',
+    'scipy.optimize',
+    'scipy.signal',
+    'scipy.fft',
+    'scipy.sparse',
+    'scipy.linalg',
+    # Other dependencies
     'xarray',
+    'bottleneck',         # Used as 'bn' in several modules
     'matplotlib',
-    'bottleneck',
+    'matplotlib.pyplot',
     'joblib',
     'pandas',
     'numba',
-    'stats',
+    'dask',
+    'dask.array',
+    'netCDF4',
+    'h5py',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
