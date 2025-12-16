@@ -1,0 +1,79 @@
+Metadata-Version: 2.4
+Name: pyturbo_sf
+Version: 1.0.5
+Summary: Python Turbulence Unleashed: Rapid Binning Operator
+Author-email: Adam Ayouche <adam_ayouche@brown.edu>
+Project-URL: Homepage, https://github.com/aayouche/pyturbo_sf
+Project-URL: Bug Tracker, https://github.com/aayouche/pyturbo_sf/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: scipy>=1.16.2
+Requires-Dist: xarray>=2025.12.0
+Requires-Dist: matplotlib>=3.10.7
+Requires-Dist: bottleneck>=1.6.0
+Requires-Dist: joblib>=1.5.2
+Provides-Extra: dev
+Requires-Dist: pytest>=9.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=7.0.0; extra == "dev"
+Requires-Dist: black>=25.0.0; extra == "dev"
+Requires-Dist: isort>=6.0.0; extra == "dev"
+Requires-Dist: flake8>=7.3.0; extra == "dev"
+Requires-Dist: memory_profiler>=0.61.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=9.0.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=3.0.2; extra == "docs"
+Requires-Dist: nbsphinx>=0.9.8; extra == "docs"
+Requires-Dist: ipython>=8.30.0; extra == "docs"
+Dynamic: license-file
+
+# PyTurbo
+---
+[[License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[[Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[[Documentation](https://img.shields.io/badge/documentation-latest-blue)](https://github.com/aayouche/pyturbo_sf)
+
+<p align="center">
+<img src="docs/pyturbo_logo.png" alt="PyTurbo Logo" width="400"/>
+</p>
+
+# Overview
+---
+PyTurbo_SF is a Python package for efficient structure function calculations in 1D, 2D, and 3D data. The package provides optimized implementations for analyzing turbulent flows and other spatially or temporally varying fields. With advanced bootstrapping techniques and adaptive binning, PyTurbo_SF can handle large datasets while maintaining statistical accuracy.
+
+# Features
+---
+- Fast structure function calculations in 1D, 2D, and 3D
+- Optimized memory usage for large datasets
+- Advanced bootstrapping with adaptive sampling indices
+- Multiple structure function types: longitudinal, transverse, scalar, and combined
+- Isotropic averaging for 2D and 3D data
+- Parallel processing for improved performance
+- Automatic convergence detection based on a standard error threshold (in physical units)
+- Comprehensive statistical analysis
+
+**For detailed documentation and examples, see the [PyTurbo_SF documentation](https://pyturbo-sf.readthedocs.io).**
+
+# Installation
+---
+The easiest method to install PyTurbo_SF is with [pip](https://pip.pypa.io/):
+
+```console
+$ pip install pyturbo_sf
+```
+
+You can also fork/clone this repository to your local machine and install it locally with pip as well:
+
+```console
+$ pip install .
+```
