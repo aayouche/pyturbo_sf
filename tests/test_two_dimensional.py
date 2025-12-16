@@ -1,5 +1,10 @@
 """
-tests for two_dimensional.py module functionality.
+Tests for two_dimensional.py module functionality.
+
+This module tests the main entry point functions for 2D structure function calculations:
+- bin_sf_2d: 2D Cartesian binning
+- get_isotropic_sf_2d: Radial (polar) binning with isotropy metrics
+- get_energy_flux_2d: Energy flux calculations (advective SF only)
 """
 
 import pytest
@@ -7,27 +12,30 @@ import numpy as np
 import xarray as xr
 
 from pyturbo_sf.two_dimensional import (
-    calc_longitudinal_2d, calc_transverse_2d, calc_default_vel_2d,
-    calc_scalar_2d, calc_scalar_scalar_2d, calc_longitudinal_transverse_2d,
-    calc_longitudinal_scalar_2d, calc_transverse_scalar_2d,
-    calculate_structure_function_2d,
-    monte_carlo_simulation_2d,
     bin_sf_2d,
-    get_isotropic_sf_2d
+    get_isotropic_sf_2d,
+    get_energy_flux_2d,
+    VALID_CI_METHODS
 )
 
+
+# =============================================================================
+# Fixtures for test datasets
+# =============================================================================
 
 @pytest.fixture
 def dataset_2d():
     """Create a 2D dataset for testing."""
-    # Create coordinates (smaller grid for faster tests)
-    x = np.linspace(0, 10, 20)
-    y = np.linspace(0, 10, 15)
+    nx, ny = 32, 24
+    x = np.linspace(0, 10, nx)
+    y = np.linspace(0, 8, ny)
     X, Y = np.meshgrid(x, y)
     
-    # Create velocity components and scalars
-    u = np.sin(X) * np.cos(Y)
-    v = np.cos(X) * np.sin(Y)
+    u = np.sin(2 * np.pi * X / 10) * np.cos(2 * np.pi * Y / 8)
+    v = np.cos(2 * np.pi * X / 10) * np.sin(2 * np.pi * Y / 8)
+    # Advective velocities (for energy flux calculations)
+    adv_u = u * 0.5 + np.random.randn(ny, nx) * 0.1
+    adv_v = v * 0.5 + np.random.randn(ny, nx) * 0.1
     scalar1 = np.sin(X + Y)
     scalar2 = np.cos(X - Y)
     
@@ -35,8 +43,10 @@ def dataset_2d():
         data_vars={
             "u": (("y", "x"), u),
             "v": (("y", "x"), v),
+            "adv_u": (("y", "x"), adv_u),
+            "adv_v": (("y", "x"), adv_v),
             "scalar1": (("y", "x"), scalar1),
-            "scalar2": (("y", "x"), scalar2)
+            "scalar2": (("y", "x"), scalar2),
         },
         coords={
             "x": (["y", "x"], X),
@@ -48,22 +58,21 @@ def dataset_2d():
 
 @pytest.fixture
 def dataset_2d_zx():
-    """Create a 2D dataset with (z,x) dimensions for testing."""
-    # Create coordinates (smaller grid for faster tests)
-    x = np.linspace(0, 10, 20)
-    z = np.linspace(0, 10, 15)
+    """Create a 2D dataset with (z,x) dimensions."""
+    nx, nz = 32, 24
+    x = np.linspace(0, 10, nx)
+    z = np.linspace(0, 8, nz)
     X, Z = np.meshgrid(x, z)
     
-    # Create velocity components and scalar
-    u = np.sin(X) * np.cos(Z)
-    w = np.cos(X) * np.sin(Z)
+    u = np.sin(2 * np.pi * X / 10) * np.cos(2 * np.pi * Z / 8)
+    w = np.cos(2 * np.pi * X / 10) * np.sin(2 * np.pi * Z / 8)
     scalar = np.sin(X + Z)
     
     ds = xr.Dataset(
         data_vars={
             "u": (("z", "x"), u),
             "w": (("z", "x"), w),
-            "scalar": (("z", "x"), scalar)
+            "scalar": (("z", "x"), scalar),
         },
         coords={
             "x": (["z", "x"], X),
@@ -74,711 +83,283 @@ def dataset_2d_zx():
 
 
 @pytest.fixture
-def dataset_2d_yx():
-    """Create a 2D dataset with (y,x) dimensions for testing time-like behavior."""
-    # Create coordinates - use regular spatial coordinates
-    x = np.linspace(0, 10, 20)
-    y = np.linspace(0, 10, 15)
+def dataset_2d_with_conditioning():
+    """Create a 2D dataset with conditioning variable."""
+    nx, ny = 32, 24
+    x = np.linspace(0, 10, nx)
+    y = np.linspace(0, 8, ny)
     X, Y = np.meshgrid(x, y)
     
-    # Create velocity components that vary in both dimensions
-    u = np.sin(X) * np.cos(Y * 0.1)
-    v = np.cos(X) * np.sin(Y * 0.1)
-    scalar = np.sin(X + Y * 0.1)
+    u = np.sin(2 * np.pi * X / 10) * np.cos(2 * np.pi * Y / 8)
+    v = np.cos(2 * np.pi * X / 10) * np.sin(2 * np.pi * Y / 8)
+    vorticity = np.random.randn(ny, nx) * 0.5 + 1.0
     
     ds = xr.Dataset(
         data_vars={
             "u": (("y", "x"), u),
-            "v": (("y", "x"), v), 
-            "scalar": (("y", "x"), scalar)
+            "v": (("y", "x"), v),
+            "vorticity": (("y", "x"), vorticity),
         },
         coords={
             "x": (["y", "x"], X),
-            "y": (["y", "x"], Y)
+            "y": (["y", "x"], Y),
         }
     )
     return ds
 
 
-class TestCalcFunctions:
+@pytest.fixture
+def dataset_2d_small():
+    """Create a small 2D dataset for edge case testing."""
+    nx, ny = 16, 12
+    x = np.linspace(0, 10, nx)
+    y = np.linspace(0, 8, ny)
+    X, Y = np.meshgrid(x, y)
     
-    def test_calc_longitudinal_2d(self, dataset_2d):
-        """Test longitudinal structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate longitudinal structure function
-        results, dx, dy = calc_longitudinal_2d(
-            subset=subset,
+    u = np.sin(X) * np.cos(Y)
+    v = np.cos(X) * np.sin(Y)
+    
+    ds = xr.Dataset(
+        data_vars={
+            "u": (("y", "x"), u),
+            "v": (("y", "x"), v),
+        },
+        coords={
+            "x": (["y", "x"], X),
+            "y": (["y", "x"], Y),
+        }
+    )
+    return ds
+
+
+@pytest.fixture
+def linear_bins_2d():
+    """Create linear bin edges for 2D."""
+    return {
+        "x": np.linspace(0.1, 5, 8),
+        "y": np.linspace(0.1, 4, 6),
+    }
+
+
+@pytest.fixture
+def log_bins_2d():
+    """Create logarithmic bin edges for 2D."""
+    return {
+        "x": np.logspace(-1, 0.7, 8),
+        "y": np.logspace(-1, 0.6, 6),
+    }
+
+
+@pytest.fixture
+def radial_bins():
+    """Create radial bin edges for isotropic functions."""
+    return {"r": np.linspace(0.1, 5, 8)}
+
+
+@pytest.fixture
+def log_radial_bins():
+    """Create logarithmic radial bin edges."""
+    return {"r": np.logspace(-1, 0.7, 8)}
+
+
+# =============================================================================
+# Tests for bin_sf_2d function
+# =============================================================================
+
+class TestBinSF2DBasic:
+    """Basic tests for bin_sf_2d function."""
+    
+    def test_longitudinal_function(self, dataset_2d, linear_bins_2d):
+        """Test longitudinal structure function binning."""
+        result = bin_sf_2d(
+            ds=dataset_2d,
             variables_names=["u", "v"],
             order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            step_nbootstrap=5,
+            convergence_eps=0.5,
+            n_jobs=1
         )
         
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+        assert 'std_error' in result.data_vars
+        assert 'x' in result.coords
+        assert 'y' in result.coords
+        assert result['sf'].dims == ('y', 'x')
+        assert result.attrs['function_type'] == 'longitudinal'
         
-        # Check that most values are finite (some may be NaN from boundary effects)
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_longitudinal_2d_yx(self, dataset_2d_yx):
-        """Test longitudinal structure function with (y,x) dimensions."""
-        # Get a small subset for faster testing
-        subset = dataset_2d_yx.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate longitudinal structure function
-        results, dx, dy = calc_longitudinal_2d(
-            subset=subset,
+    def test_transverse_function(self, dataset_2d, linear_bins_2d):
+        """Test transverse structure function binning."""
+        result = bin_sf_2d(
+            ds=dataset_2d,
             variables_names=["u", "v"],
             order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='transverse',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
         )
         
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
+        assert isinstance(result, xr.Dataset)
+        assert result.attrs['function_type'] == 'transverse'
         
-        # Check that values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_transverse_2d(self, dataset_2d):
-        """Test transverse structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate transverse structure function
-        results, dx, dy = calc_transverse_2d(
-            subset=subset,
-            variables_names=["u", "v"],
-            order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_transverse_2d_yx(self, dataset_2d_yx):
-        """Test transverse structure function with (y,x) dimensions."""
-        # Get a small subset for faster testing
-        subset = dataset_2d_yx.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate transverse structure function
-        results, dx, dy = calc_transverse_2d(
-            subset=subset,
-            variables_names=["u", "v"],
-            order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_default_vel_2d(self, dataset_2d):
-        """Test default velocity structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate default velocity structure function
-        results, dx, dy = calc_default_vel_2d(
-            subset=subset,
-            variables_names=["u", "v"],
-            order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_scalar_2d(self, dataset_2d):
-        """Test scalar structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.scalar1.shape
-        
-        # Calculate scalar structure function
-        results, dx, dy = calc_scalar_2d(
-            subset=subset,
+    def test_scalar_function(self, dataset_2d, linear_bins_2d):
+        """Test scalar structure function binning."""
+        result = bin_sf_2d(
+            ds=dataset_2d,
             variables_names=["scalar1"],
             order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='scalar',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
         )
         
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
+        assert isinstance(result, xr.Dataset)
+        assert result.attrs['function_type'] == 'scalar'
         
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_scalar_2d_yx(self, dataset_2d_yx):
-        """Test scalar structure function with (y,x) dimensions."""
-        # Get a small subset for faster testing
-        subset = dataset_2d_yx.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.scalar.shape
-        
-        # Calculate scalar structure function
-        results, dx, dy = calc_scalar_2d(
-            subset=subset,
-            variables_names=["scalar"],
-            order=2,
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_scalar_scalar_2d(self, dataset_2d):
-        """Test scalar-scalar structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.scalar1.shape
-        
-        # Calculate scalar-scalar structure function
-        results, dx, dy = calc_scalar_scalar_2d(
-            subset=subset,
-            variables_names=["scalar1", "scalar2"],
-            order=(2, 1),  # Order 2 for first scalar, 1 for second
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_longitudinal_transverse_2d(self, dataset_2d):
-        """Test longitudinal-transverse structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate longitudinal-transverse structure function
-        results, dx, dy = calc_longitudinal_transverse_2d(
-            subset=subset,
-            variables_names=["u", "v"],
-            order=(2, 1),  # Order 2 for longitudinal, 1 for transverse
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_longitudinal_scalar_2d(self, dataset_2d):
-        """Test longitudinal-scalar structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate longitudinal-scalar structure function
-        results, dx, dy = calc_longitudinal_scalar_2d(
-            subset=subset,
-            variables_names=["u", "v", "scalar1"],
-            order=(2, 1),  # Order 2 for longitudinal, 1 for scalar
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calc_transverse_scalar_2d(self, dataset_2d):
-        """Test transverse-scalar structure function calculation in 2D."""
-        # Get a small subset for faster testing
-        subset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        ny, nx = subset.u.shape
-        
-        # Calculate transverse-scalar structure function
-        results, dx, dy = calc_transverse_scalar_2d(
-            subset=subset,
-            variables_names=["u", "v", "scalar1"],
-            order=(2, 1),  # Order 2 for transverse, 1 for scalar
-            dims=["y", "x"],
-            ny=ny, 
-            nx=nx
-        )
-        
-        # Check shapes
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-
-
-class TestCalculateStructureFunction:
-    
-    def test_calculate_structure_function_2d(self, dataset_2d):
-        """Test main structure function calculation in 2D."""
-        # Test with longitudinal function
-        results, dx, dy = calculate_structure_function_2d(
+    def test_scalar_scalar_function(self, dataset_2d, linear_bins_2d):
+        """Test scalar-scalar structure function binning."""
+        result = bin_sf_2d(
             ds=dataset_2d,
-            dims=["y", "x"],
-            variables_names=["u", "v"],
-            order=2,
-            fun="longitudinal"
+            variables_names=["scalar1", "scalar2"],
+            order=(2, 1),
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='scalar_scalar',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
         )
         
-        # Check shapes
-        ny, nx = dataset_2d.u.shape
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
+        assert isinstance(result, xr.Dataset)
+        assert result.attrs['function_type'] == 'scalar_scalar'
         
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
+    def test_zx_dimensions(self, dataset_2d_zx):
+        """Test with (z, x) dimensions."""
+        bins = {
+            "x": np.linspace(0.1, 5, 6),
+            "z": np.linspace(0.1, 4, 5),
+        }
         
-    def test_calculate_structure_function_2d_different_plane(self, dataset_2d_zx):
-        """Test structure function calculation for (z,x) plane."""
-        # Test with longitudinal function
-        results, dx, dy = calculate_structure_function_2d(
+        result = bin_sf_2d(
             ds=dataset_2d_zx,
-            dims=["z", "x"],
             variables_names=["u", "w"],
             order=2,
-            fun="longitudinal"
+            bins=bins,
+            bootsize={"x": 8, "z": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
         )
         
-        # Check shapes
-        nz, nx = dataset_2d_zx.u.shape
-        assert results.shape == (nz * nx,)
-        assert dx.shape == (nz * nx,)
-        assert dy.shape == (nz * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calculate_structure_function_2d_yx(self, dataset_2d_yx):
-        """Test structure function calculation with (y,x) dimensions."""
-        # Test with longitudinal function
-        results, dx, dy = calculate_structure_function_2d(
-            ds=dataset_2d_yx,
-            dims=["y", "x"],
+        assert isinstance(result, xr.Dataset)
+        assert 'x' in result.coords
+        assert 'z' in result.coords
+
+
+class TestBinSF2DWithConditioning:
+    """Tests for bin_sf_2d with conditioning."""
+    
+    def test_with_conditioning_single_bin(self, dataset_2d_with_conditioning, linear_bins_2d):
+        """Test binning with conditioning variable and single bin."""
+        result = bin_sf_2d(
+            ds=dataset_2d_with_conditioning,
             variables_names=["u", "v"],
             order=2,
-            fun="longitudinal"
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            conditioning_var="vorticity",
+            conditioning_bins=[0.5, 1.5],
+            n_jobs=1
         )
         
-        # Check shapes
-        ny, nx = dataset_2d_yx.u.shape
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calculate_structure_function_2d_scalar(self, dataset_2d):
-        """Test structure function calculation for scalar field."""
-        # Test with scalar function
-        results, dx, dy = calculate_structure_function_2d(
-            ds=dataset_2d,
-            dims=["y", "x"],
-            variables_names=["scalar1"],
-            order=2,
-            fun="scalar"
-        )
-        
-        # Check shapes
-        ny, nx = dataset_2d.scalar1.shape
-        assert results.shape == (ny * nx,)
-        assert dx.shape == (ny * nx,)
-        assert dy.shape == (ny * nx,)
-        
-        # Check that most values are finite
-        assert np.sum(np.isfinite(results)) > 0
-        assert np.sum(np.isfinite(dx)) > 0
-        assert np.sum(np.isfinite(dy)) > 0
-        
-    def test_calculate_structure_function_2d_errors(self, dataset_2d):
-        """Test error cases for structure function calculation."""
-        # Test with unsupported function type
-        with pytest.raises(ValueError):
-            calculate_structure_function_2d(
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+
+
+class TestBinSF2DErrorHandling:
+    """Tests for error handling in bin_sf_2d."""
+    
+    def test_invalid_bins_type(self, dataset_2d):
+        """Test that non-dict bins raises error."""
+        with pytest.raises(ValueError, match="must be a dictionary"):
+            bin_sf_2d(
                 ds=dataset_2d,
-                dims=["y", "x"],
                 variables_names=["u", "v"],
                 order=2,
-                fun="unsupported_type"
+                bins=np.linspace(0, 10, 10),
+                bootsize={"x": 8, "y": 6},
+                n_jobs=1
             )
             
-        # Test with non-existent variable
-        with pytest.raises(ValueError):
-            calculate_structure_function_2d(
+    def test_missing_dimension_in_bins(self, dataset_2d):
+        """Test that missing dimension in bins raises error."""
+        with pytest.raises(ValueError, match="must be a dictionary with all dimensions"):
+            bin_sf_2d(
                 ds=dataset_2d,
-                dims=["y", "x"],
-                variables_names=["nonexistent"],
+                variables_names=["u", "v"],
                 order=2,
-                fun="scalar"
+                bins={"x": np.linspace(0, 10, 10)},
+                bootsize={"x": 8, "y": 6},
+                n_jobs=1
             )
 
 
-class TestMonteCarloSimulation:
+class TestBinSF2DOutputStructure:
+    """Tests for output structure of bin_sf_2d."""
     
-    def test_monte_carlo_simulation_2d(self, dataset_2d):
-        """Test Monte Carlo simulation for 2D structure functions."""
-        # Use a very small subset for faster tests
-        dataset = dataset_2d.isel(x=slice(0, 5), y=slice(0, 5))
-        
-        # Setup parameters
-        dims = ["y", "x"]
-        bootsize = {"y": 3, "x": 3}
-        nbootstrap = 2  # Small number for faster testing
-        
-        # Calculate adaptive spacings (needed for Monte Carlo simulation)
-        from pyturbo_sf.core import (
-            setup_bootsize_2d,
-            calculate_adaptive_spacings_2d,
-            compute_boot_indexes_2d
-        )
-        
-        data_shape = dict(dataset.sizes)
-        bootsize_dict, bootstrappable_dims, num_bootstrappable = setup_bootsize_2d(dims, data_shape, bootsize)
-        
-        spacings_info, all_spacings = calculate_adaptive_spacings_2d(
-            dims, data_shape, bootsize_dict, bootstrappable_dims, num_bootstrappable
-        )
-        
-        boot_indexes = compute_boot_indexes_2d(
-            dims, data_shape, bootsize_dict, all_spacings, bootstrappable_dims
-        )
-        
-        # Run Monte Carlo simulation with minimal iterations
-        results, dx_vals, dy_vals = monte_carlo_simulation_2d(
-            ds=dataset,
-            dims=dims,
+    def test_output_variables(self, dataset_2d, linear_bins_2d):
+        """Test that output contains expected variables."""
+        result = bin_sf_2d(
+            ds=dataset_2d,
             variables_names=["u", "v"],
             order=2,
-            nbootstrap=nbootstrap,
-            bootsize=bootsize_dict,
-            num_bootstrappable=num_bootstrappable,
-            all_spacings=all_spacings,
-            boot_indexes=boot_indexes,
-            bootstrappable_dims=bootstrappable_dims,
-            fun="longitudinal",
-            spacing=1,
-            n_jobs=1  # Sequential processing for testing
-        )
-        
-        # Check results
-        assert len(results) == nbootstrap
-        assert len(dx_vals) == nbootstrap
-        assert len(dy_vals) == nbootstrap
-        
-        # At least some values should be finite
-        assert np.any(np.isfinite(results[0]))
-        assert np.any(np.isfinite(dx_vals[0]))
-        assert np.any(np.isfinite(dy_vals[0]))
-        
-    def test_monte_carlo_simulation_2d_yx(self, dataset_2d_yx):
-        """Test Monte Carlo simulation with (y,x) dimensions."""
-        # Use a very small subset for faster tests
-        dataset = dataset_2d_yx.isel(x=slice(0, 5), y=slice(0, 5))
-        
-        # Setup parameters
-        dims = ["y", "x"]
-        bootsize = {"y": 3, "x": 3}
-        nbootstrap = 2  # Small number for faster testing
-        
-        # Calculate adaptive spacings
-        from pyturbo_sf.core import (
-            validate_dataset_2d,
-            setup_bootsize_2d,
-            calculate_adaptive_spacings_2d,
-            compute_boot_indexes_2d
-        )
-        
-        # Validate to get time_dims
-        _, data_shape, _, time_dims = validate_dataset_2d(dataset)
-        bootsize_dict, bootstrappable_dims, num_bootstrappable = setup_bootsize_2d(dims, data_shape, bootsize)
-        
-        spacings_info, all_spacings = calculate_adaptive_spacings_2d(
-            dims, data_shape, bootsize_dict, bootstrappable_dims, num_bootstrappable
-        )
-        
-        boot_indexes = compute_boot_indexes_2d(
-            dims, data_shape, bootsize_dict, all_spacings, bootstrappable_dims
-        )
-        
-        # Run Monte Carlo simulation
-        results, dx_vals, dy_vals = monte_carlo_simulation_2d(
-            ds=dataset,
-            dims=dims,
-            variables_names=["u", "v"],
-            order=2,
-            nbootstrap=nbootstrap,
-            bootsize=bootsize_dict,
-            num_bootstrappable=num_bootstrappable,
-            all_spacings=all_spacings,
-            boot_indexes=boot_indexes,
-            bootstrappable_dims=bootstrappable_dims,
-            fun="longitudinal",
-            spacing=1,
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
             n_jobs=1
         )
         
-        # Check results
-        assert len(results) == nbootstrap
-        assert len(dx_vals) == nbootstrap
-        assert len(dy_vals) == nbootstrap
-        
-        # At least some values should be finite
-        assert np.any(np.isfinite(results[0]))
-        assert np.any(np.isfinite(dx_vals[0]))
-        assert np.any(np.isfinite(dy_vals[0]))
+        expected_vars = ['sf', 'std_error', 'point_counts', 'density', 
+                        'nbootstraps', 'converged']
+        for var in expected_vars:
+            assert var in result.data_vars, f"Missing variable: {var}"
 
 
-class TestBinSF:
+# =============================================================================
+# Tests for get_isotropic_sf_2d function
+# =============================================================================
+
+class TestIsotropicSF2DBasic:
+    """Basic tests for get_isotropic_sf_2d function."""
     
-    def test_bin_sf_2d(self, dataset_2d):
-        """Test the binning function for 2D structure functions."""
-        # Use a small subset for faster tests
-        dataset = dataset_2d.isel(x=slice(0, 8), y=slice(0, 6))
-        
-        # Setup bin edges
-        bins_x = np.linspace(0, 5, 6) + 1.0e-6
-        bins_y = np.linspace(0, 5, 6) + 1.0e-6
-        bins = {"x": bins_x, "y": bins_y}
-        
-        # Test with minimal number of bootstraps for speed
-        binned_ds = bin_sf_2d(
-            ds=dataset,
+    def test_longitudinal_function(self, dataset_2d, radial_bins):
+        """Test isotropic longitudinal structure function."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
             variables_names=["u", "v"],
             order=2,
-            bins=bins,
-            bootsize={"x": 3, "y": 3},
-            fun="longitudinal",
-            initial_nbootstrap=2,
-            max_nbootstrap=3,
-            step_nbootstrap=1,
-            convergence_eps=0.5,  # Large value for faster convergence
-            n_jobs=1  # Sequential processing for testing
-        )
-        
-        # Verify the result has expected structure
-        assert isinstance(binned_ds, xr.Dataset)
-        assert "sf" in binned_ds.data_vars
-        assert "sf_std" in binned_ds.data_vars
-        assert "x" in binned_ds.coords
-        assert "y" in binned_ds.coords
-        
-        # Check that binned structure function contains valid values
-        assert not np.all(np.isnan(binned_ds.sf))
-        
-        # Check that attributes are correctly set
-        assert "bin_type_x" in binned_ds.attrs
-        assert "bin_type_y" in binned_ds.attrs
-        assert "order" in binned_ds.attrs
-        assert "function_type" in binned_ds.attrs
-        assert "variables" in binned_ds.attrs
-        
-        # Test with a scalar function
-        binned_ds = bin_sf_2d(
-            ds=dataset,
-            variables_names=["scalar1"],
-            order=2,
-            bins=bins,
-            bootsize={"x": 3, "y": 3},
-            fun="scalar",
-            initial_nbootstrap=2,
-            max_nbootstrap=3,
-            step_nbootstrap=1,
-            convergence_eps=0.5,
-            n_jobs=1
-        )
-        
-        # Verify scalar results
-        assert isinstance(binned_ds, xr.Dataset)
-        assert "sf" in binned_ds.data_vars
-        assert not np.all(np.isnan(binned_ds.sf))
-        
-    def test_bin_sf_2d_yx(self, dataset_2d_yx):
-        """Test binning with (y,x) dimensions."""
-        # Use a small subset for faster tests
-        dataset = dataset_2d_yx.isel(y=slice(0, 8), x=slice(0, 6))
-        
-        # Setup bin edges - regular spatial bins
-        bins_y = np.linspace(0, 5, 6) + 1.0e-6
-        bins_x = np.linspace(0, 5, 6) + 1.0e-6
-        bins = {"y": bins_y, "x": bins_x}
-        
-        # Test with minimal number of bootstraps
-        binned_ds = bin_sf_2d(
-            ds=dataset,
-            variables_names=["u", "v"],
-            order=2,
-            bins=bins,
-            bootsize={"y": 3, "x": 3},
-            fun="longitudinal",
-            initial_nbootstrap=2,
-            max_nbootstrap=3,
-            step_nbootstrap=1,
-            convergence_eps=0.5,
-            n_jobs=1
-        )
-        
-        # Verify the result
-        assert isinstance(binned_ds, xr.Dataset)
-        assert "sf" in binned_ds.data_vars
-        assert "y" in binned_ds.coords
-        assert "x" in binned_ds.coords
-        
-        # Check that binned structure function contains valid values
-        assert not np.all(np.isnan(binned_ds.sf))
-
-
-class TestIsotropicSF:
-    
-    def test_get_isotropic_sf_2d(self, dataset_2d):
-        """Test the isotropic structure function calculation for 2D."""
-        # Use a small subset for faster tests
-        dataset = dataset_2d.isel(x=slice(0, 8), y=slice(0, 8))
-        
-        # Setup radial bin edges
-        r_bins = np.linspace(0, 5, 2) + 1e-6
-        bins = {"r": r_bins}
-        
-        # Test with minimal number of bootstraps and angular bins for speed
-        isotropic_ds = get_isotropic_sf_2d(
-            ds=dataset,
-            variables_names=["u", "v"],
-            order=2,
-            bins=bins,
-            bootsize={"x": 4, "y": 4},
-            fun="longitudinal",
-            initial_nbootstrap=2,
-            max_nbootstrap=3,
-            step_nbootstrap=1,
-            n_bins_theta=8,  # Small number of angular bins
-            window_size_theta=3,
-            window_size_r=2,
-            convergence_eps=0.5,  # Large value for faster convergence
-            n_jobs=1  # Sequential processing for testing
-        )
-        
-        # Verify the result has expected structure
-        assert isinstance(isotropic_ds, xr.Dataset)
-        assert "sf" in isotropic_ds.data_vars
-        assert "sf_polar" in isotropic_ds.data_vars
-        assert "r" in isotropic_ds.coords
-        assert "theta" in isotropic_ds.coords
-        
-        # Check dimensions of polar results
-        assert isotropic_ds.sf_polar.dims == ('theta', 'r')
-        assert len(isotropic_ds.r) == len(r_bins) - 1
-        assert len(isotropic_ds.theta) == 8
-        
-        # Check that isotropic structure function contains valid values
-        assert not np.all(np.isnan(isotropic_ds.sf))
-        
-        # Check that attributes are correctly set
-        assert "bin_type" in isotropic_ds.attrs
-        assert "order" in isotropic_ds.attrs
-        assert "function_type" in isotropic_ds.attrs
-        assert "variables" in isotropic_ds.attrs
-        assert "window_size_theta" in isotropic_ds.attrs
-        assert "window_size_r" in isotropic_ds.attrs
-        
-        # Test with a scalar function
-        isotropic_ds = get_isotropic_sf_2d(
-            ds=dataset,
-            variables_names=["scalar1"],
-            order=2,
-            bins=bins,
-            bootsize={"x": 4, "y": 4},
-            fun="scalar",
-            initial_nbootstrap=2,
-            max_nbootstrap=3,
-            step_nbootstrap=1,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
             n_bins_theta=8,
             window_size_theta=3,
             window_size_r=2,
@@ -786,11 +367,356 @@ class TestIsotropicSF:
             n_jobs=1
         )
         
-        # Verify scalar results
-        assert isinstance(isotropic_ds, xr.Dataset)
-        assert "sf" in isotropic_ds.data_vars
-        assert not np.all(np.isnan(isotropic_ds.sf))
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+        assert 'sf_polar' in result.data_vars
+        assert 'error_isotropy' in result.data_vars
+        assert 'error_homogeneity' in result.data_vars
+        assert 'r' in result.coords
+        assert 'theta' in result.coords
+        assert result['sf_polar'].dims == ('theta', 'r')
+        assert len(result.theta) == 8
+        
+    def test_scalar_function(self, dataset_2d, radial_bins):
+        """Test isotropic scalar structure function."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["scalar1"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='scalar',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert result.attrs['function_type'] == 'scalar'
+        
+    def test_log_radial_bins(self, dataset_2d, log_radial_bins):
+        """Test with logarithmic radial bins."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=log_radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1
+        )
+        
+        assert result.attrs['bin_type'] == 'logarithmic'
+
+
+class TestIsotropicSF2DConfidenceIntervals:
+    """Tests for CI methods in get_isotropic_sf_2d."""
+    
+    def test_percentile_ci_method(self, dataset_2d, radial_bins):
+        """Test percentile CI method."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=10,
+            max_nbootstrap=20,
+            n_bins_theta=8,
+            ci_method='percentile',
+            confidence_interval=0.95,
+            n_jobs=1
+        )
+        
+        assert result.attrs['ci_method'] == 'percentile'
+        assert 'ci_upper' in result.data_vars
+        assert 'ci_lower' in result.data_vars
+        
+    def test_standard_ci_method(self, dataset_2d, radial_bins):
+        """Test standard CI method."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=10,
+            max_nbootstrap=20,
+            n_bins_theta=8,
+            ci_method='standard',
+            n_jobs=1
+        )
+        
+        assert result.attrs['ci_method'] == 'standard'
+        
+    def test_invalid_ci_method_raises_error(self, dataset_2d, radial_bins):
+        """Test that invalid CI method raises ValueError."""
+        with pytest.raises(ValueError, match="ci_method must be one of"):
+            get_isotropic_sf_2d(
+                ds=dataset_2d,
+                variables_names=["u", "v"],
+                order=2,
+                bins=radial_bins,
+                bootsize={"x": 8, "y": 6},
+                ci_method='invalid_method',
+                n_jobs=1
+            )
+
+
+class TestIsotropicSF2DConditioning:
+    """Tests for conditioning in get_isotropic_sf_2d."""
+    
+    def test_single_conditioning_bin(self, dataset_2d_with_conditioning, radial_bins):
+        """Test isotropic SF with single conditioning bin."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d_with_conditioning,
+            variables_names=["u", "v"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            conditioning_var="vorticity",
+            conditioning_bins=[0.5, 1.5],
+            n_jobs=1
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+
+
+# =============================================================================
+# Tests for get_energy_flux_2d function
+# =============================================================================
+
+class TestEnergyFlux2DBasic:
+    """Basic tests for get_energy_flux_2d function."""
+    
+    def test_advective_function(self, dataset_2d):
+        """Test energy flux with advective structure function."""
+        wavenumbers = np.logspace(-0.5, 0.5, 10)
+        
+        result = get_energy_flux_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v", "adv_u", "adv_v"],
+            order=1,
+            wavenumbers=wavenumbers,
+            bootsize={"x": 8, "y": 6},
+            fun='advective',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            window_size_theta=3,
+            window_size_k=2,
+            convergence_eps=0.5,
+            n_jobs=1
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'energy_flux' in result.data_vars
+        assert 'k' in result.coords
+        
+    def test_auto_wavenumbers(self, dataset_2d):
+        """Test automatic wavenumber generation."""
+        result = get_energy_flux_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v", "adv_u", "adv_v"],
+            order=1,
+            wavenumbers=None,
+            bootsize={"x": 8, "y": 6},
+            fun='advective',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'k' in result.coords
+        
+    def test_dict_wavenumbers(self, dataset_2d):
+        """Test with dictionary wavenumber specification."""
+        wavenumbers = {'k': np.logspace(-0.5, 0.5, 15)}
+        
+        result = get_energy_flux_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v", "adv_u", "adv_v"],
+            order=1,
+            wavenumbers=wavenumbers,
+            bootsize={"x": 8, "y": 6},
+            fun='advective',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1
+        )
+        
+        assert len(result.k) == 15
+        
+    def test_invalid_function_raises_error(self, dataset_2d):
+        """Test that invalid function type raises ValueError."""
+        with pytest.raises(ValueError, match="Energy flux decomposition requires"):
+            get_energy_flux_2d(
+                ds=dataset_2d,
+                variables_names=["u", "v"],
+                order=2,
+                wavenumbers=np.logspace(-0.5, 0.5, 8),
+                bootsize={"x": 8, "y": 6},
+                fun='longitudinal',
+                n_jobs=1
+            )
+
+
+class TestEnergyFlux2DConfidenceIntervals:
+    """Tests for CI methods in get_energy_flux_2d."""
+    
+    def test_percentile_ci_method(self, dataset_2d):
+        """Test percentile CI method."""
+        wavenumbers = np.logspace(-0.5, 0.5, 8)
+        
+        result = get_energy_flux_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v", "adv_u", "adv_v"],
+            order=1,
+            wavenumbers=wavenumbers,
+            bootsize={"x": 8, "y": 6},
+            fun='advective',
+            initial_nbootstrap=10,
+            max_nbootstrap=20,
+            n_bins_theta=8,
+            ci_method='percentile',
+            confidence_interval=0.95,
+            n_jobs=1
+        )
+        
+        assert result.attrs['ci_method'] == 'percentile'
+        
+    def test_standard_ci_method(self, dataset_2d):
+        """Test standard CI method."""
+        wavenumbers = np.logspace(-0.5, 0.5, 8)
+        
+        result = get_energy_flux_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v", "adv_u", "adv_v"],
+            order=1,
+            wavenumbers=wavenumbers,
+            bootsize={"x": 8, "y": 6},
+            fun='advective',
+            initial_nbootstrap=10,
+            max_nbootstrap=20,
+            n_bins_theta=8,
+            ci_method='standard',
+            n_jobs=1
+        )
+        
+        assert result.attrs['ci_method'] == 'standard'
+
+
+# =============================================================================
+# Tests for VALID_CI_METHODS constant
+# =============================================================================
+
+class TestValidCIMethods:
+    """Tests for VALID_CI_METHODS constant."""
+    
+    def test_valid_methods_exist(self):
+        """Test that expected CI methods are in the constant."""
+        assert 'standard' in VALID_CI_METHODS
+        assert 'percentile' in VALID_CI_METHODS
+
+
+# =============================================================================
+# Tests for numerical properties
+# =============================================================================
+
+class TestNumericalProperties:
+    """Tests for numerical properties of results."""
+    
+    def test_second_order_non_negative_2d(self, dataset_2d, linear_bins_2d):
+        """Test that second-order SF is non-negative for 2D bins."""
+        result = bin_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
+        )
+        
+        sf_values = result['sf'].values
+        valid_values = sf_values[~np.isnan(sf_values)]
+        assert np.all(valid_values >= -1e-10), "Second-order SF should be non-negative"
+        
+    def test_second_order_non_negative_isotropic(self, dataset_2d, radial_bins):
+        """Test that second-order SF is non-negative for isotropic."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1
+        )
+        
+        sf_values = result['sf'].values
+        valid_values = sf_values[~np.isnan(sf_values)]
+        assert np.all(valid_values >= -1e-10), "Second-order SF should be non-negative"
+
+
+# =============================================================================
+# Tests for different orders
+# =============================================================================
+
+class TestDifferentOrders:
+    """Tests for different structure function orders."""
+    
+    def test_order_1(self, dataset_2d, radial_bins):
+        """Test first-order structure function."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=1,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            n_bins_theta=8,
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
+        )
+        
+        assert result.attrs['order'] == '1'
+        
+    def test_order_3(self, dataset_2d, radial_bins):
+        """Test third-order structure function."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=3,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            n_bins_theta=8,
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1
+        )
+        
+        assert result.attrs['order'] == '3'
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", "test_two_dimensional.py"])
+    pytest.main(["-v", __file__])

@@ -5,6 +5,7 @@ import math
 from datetime import datetime
 from numpy.lib.stride_tricks import sliding_window_view
 import xarray as xr
+import warnings
 
 #############################Helper Function##########################################
 
@@ -39,6 +40,120 @@ def is_time_dimension(dim, ds):
     
     return False
 
+def _check_bootsize_power_of_2(dims, data_shape, bootsize_dict):
+    """
+    Check if bootsize is data_size / power_of_2 and warn if not.
+    Returns a dictionary of valid bootsizes for each dimension.
+    """
+    valid_bootsizes_dict = {}
+    bootstrappable_dims = []
+    has_issues = False
+    
+    # Calculate valid bootsizes for each dimension
+    for dim in dims:
+        data_size = data_shape[dim]
+        boot_size = bootsize_dict[dim]
+        
+        # Check if this dimension is bootstrappable (boot_size < data_size)
+        if boot_size < data_size:
+            bootstrappable_dims.append(dim)
+            
+            # Calculate all valid bootsizes (data_size/2^n)
+            valid_bootsizes = []
+            power = 1
+            while data_size // (2**power) >= 1:
+                valid_bootsizes.append(data_size // (2**power))
+                power += 1
+            
+            valid_bootsizes_dict[dim] = valid_bootsizes
+            
+            # Check if current bootsize is valid
+            if boot_size not in valid_bootsizes:
+                has_issues = True
+        else:
+            # This dimension is not bootstrappable
+            valid_bootsizes_dict[dim] = [boot_size]  # Keep current value as only option
+    
+    # Issue warning based on what's bootstrappable
+    if has_issues:
+        if len(bootstrappable_dims) == 0:
+            # No dimensions are bootstrappable
+            warning_msg = (
+                f"\n⚠️  Warning: No dimensions are bootstrappable!\n"
+                f"   All bootsizes are >= data sizes.\n"
+                f"   Current bootsize: {bootsize_dict}\n"
+                f"   Data shape: {data_shape}\n"
+            )
+            
+        elif len(bootstrappable_dims) == 1:
+            # Only one dimension is bootstrappable
+            dim = bootstrappable_dims[0]
+            current = bootsize_dict[dim]
+            data_size = data_shape[dim]
+            
+            warning_msg = (
+                f"\n⚠️  Warning: Invalid bootsize for dimension '{dim}'!\n"
+                f"   Current bootsize: {current}\n"
+                f"   Data size: {data_size}\n"
+                f"\n"
+                f"   Recommended choices for '{dim}':\n"
+            )
+            # Show first 6 valid options
+            for size in valid_bootsizes_dict[dim][:6]:
+                warning_msg += f"   • {size}\n"
+            
+            # Note about other dimension
+            other_dims = [d for d in dims if d not in bootstrappable_dims]
+            if other_dims:
+                warning_msg += f"\n   Note: Dimension(s) {other_dims} not bootstrappable (bootsize >= data_size)\n"
+                
+        else:
+            # Multiple dimensions are bootstrappable
+            # Check if ALL dimensions are bootstrappable
+            if len(bootstrappable_dims) == len(dims):
+                # All dimensions bootstrappable - show paired combinations
+                dim_names = ", ".join(bootstrappable_dims)
+                current = ", ".join([str(bootsize_dict[dim]) for dim in bootstrappable_dims])
+                
+                # Get the valid combinations
+                max_options = min(len(valid_bootsizes_dict[dim]) for dim in bootstrappable_dims)
+                
+                warning_msg = (
+                    f"\n⚠️  Warning: Invalid bootsize selection!\n"
+                    f"   Current bootsize ({dim_names}): {current}\n"
+                    f"\n"
+                    f"   Recommended choices ({dim_names}):\n"
+                )
+                
+                for i in range(min(max_options, 6)):
+                    combo = ", ".join([str(valid_bootsizes_dict[dim][i]) for dim in bootstrappable_dims])
+                    warning_msg += f"   • {combo}\n"
+                    
+            else:
+                # Some but not all dimensions are bootstrappable
+                warning_msg = (
+                    f"\n⚠️  Warning: Invalid bootsize selection!\n"
+                    f"   Bootstrappable dimensions: {bootstrappable_dims}\n"
+                    f"\n"
+                )
+                
+                # Show valid sizes for each bootstrappable dimension
+                for dim in bootstrappable_dims:
+                    if bootsize_dict[dim] not in valid_bootsizes_dict[dim]:
+                        warning_msg += f"   Dimension '{dim}' (current: {bootsize_dict[dim]}, data: {data_shape[dim]}):\n"
+                        for size in valid_bootsizes_dict[dim][:5]:
+                            warning_msg += f"     • {size}\n"
+                        warning_msg += "\n"
+                
+                # Note about non-bootstrappable dimensions
+                non_boot_dims = [d for d in dims if d not in bootstrappable_dims]
+                if non_boot_dims:
+                    warning_msg += f"   Note: Dimension(s) {non_boot_dims} not bootstrappable (bootsize >= data_size)\n"
+        
+        warnings.warn(warning_msg, UserWarning)
+    
+    # Return only the valid bootsizes for bootstrappable dimensions
+    return {dim: sizes for dim, sizes in valid_bootsizes_dict.items() if dim in bootstrappable_dims}
 ######################################################################################
 #############################Validate Datasets########################################
 
@@ -287,7 +402,9 @@ def setup_bootsize_1d(dim, data_shape, bootsize=None):
     
     # Determine if we have any bootstrappable dimensions
     num_bootstrappable = len(bootstrappable_dims)
-    
+    # check power of 2 bootsize
+    _check_bootsize_power_of_2([dim], data_shape, bootsize_dict)
+     
     return bootsize_dict, bootstrappable_dims, num_bootstrappable
     
 # 2D
@@ -336,6 +453,8 @@ def setup_bootsize_2d(dims, data_shape, bootsize=None):
     
     # Determine number of bootstrappable dimensions
     num_bootstrappable = len(bootstrappable_dims)
+    # check power of 2 bootsize
+    _check_bootsize_power_of_2(dims, data_shape, bootsize_dict)
     
     return bootsize_dict, bootstrappable_dims, num_bootstrappable
 
@@ -385,6 +504,8 @@ def setup_bootsize_3d(dims, data_shape, bootsize=None):
     
     # Count bootstrappable dimensions
     num_bootstrappable = len(bootstrappable_dims)
+    # check power of 2 bootsize
+    _check_bootsize_power_of_2(dims, data_shape, bootsize_dict)
     
     return bootsize_dict, bootstrappable_dims, num_bootstrappable
 

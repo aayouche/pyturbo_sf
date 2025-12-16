@@ -11,6 +11,8 @@ Jupyter Notebook Examples
 - :doc:`examples/example_1D_mooring` - Structure function analysis of time series from oceanographic moorings
 - :doc:`examples/example_2D_SWOT` - Satellite altimetry data analysis using 2D structure functions  
 - :doc:`examples/example_2D_CROCO` - Regional ocean modeling analysis with CROCO simulation data
+- :doc:`examples/example_2D_CROCO_Bessel` - Regional ocean modeling analysis with CROCO simulation data For Bessel Energy Flux Decomposition
+- :doc:`examples/example_2D_MITGCM_Conditional` - Regional ocean modeling analysis with LLC4320 simulation data For Conditional Structure Function Based on Sea Ice Concentration
 - :doc:`examples/example_3D_DYCOMS` - Atmospheric boundary layer turbulence analysis from DYCOMS LES
 
 .. toctree::

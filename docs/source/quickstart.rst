@@ -25,69 +25,72 @@ Let's start with a simple 1D time series:
 
 .. code-block:: python
 
-   import numpy as np
-   import xarray as xr
-   import pyturbo_sf
-   import matplotlib.pyplot as plt
+	import numpy as np
+	import xarray as xr
+	import pyturbo_sf
+	import matplotlib.pyplot as plt
+	import time as tm
 
-   # Step 1: Create sample data
-   n = 5000
-   dt = 0.01  # time step in seconds
-   time = np.arange(n) * dt
-   
-   # Create a signal with multiple scales
-   signal = (2.0 * np.sin(2*np.pi*0.1*time) +      # Low frequency
-             1.0 * np.sin(2*np.pi*1.0*time) +      # Medium frequency  
-             0.5 * np.sin(2*np.pi*5.0*time) +      # High frequency
-             0.3 * np.random.randn(n))              # Noise
+	time_start = tm.time()
+	# Step 1: Create sample data
+	n = 5000
+	dt = 0.01  # time step in seconds
+	time = np.arange(n) * dt
 
-   # Create xarray Dataset
-   ds = xr.Dataset(
-       data_vars={"velocity": ("time", signal)},
-       coords={"time": time},
-       attrs={"description": "Example velocity time series"}
-   )
+	# Create a signal with multiple scales
+	signal = (2.0 * np.sin(2*np.pi*0.1*time) +      # Low frequency
+		  1.0 * np.sin(2*np.pi*1.0*time) +      # Medium frequency
+		  0.5 * np.sin(2*np.pi*5.0*time) +      # High frequency
+		  0.3 * np.random.randn(n))              # Noise
 
-   # Step 2: Define logarithmic bins
-   bins = {'time': np.logspace(-2, 1, 25)}  # From 0.01s to 10s
+	# Create xarray Dataset
+	ds = xr.Dataset(
+	    data_vars={"velocity": ("time", signal)},
+	    coords={"time": time},
+	    attrs={"description": "Example velocity time series"}
+	)
 
-   # Step 3: Calculate 2nd-order structure function
-   sf_result = pyturbo_sf.bin_sf_1d(
-       ds=ds,
-       variables_names=["velocity"],
-       order=2,
-       bins=bins,
-       fun='scalar',
-       bootsize=50,                    # Bootstrap sample size
-       initial_nbootstrap=30,          # Initial bootstrap iterations
-       max_nbootstrap=100,             # Maximum bootstrap iterations
-       convergence_eps=0.05,           # Convergence threshold
-       backend='loky'                  # Parallel backend
-   )
+	# Step 2: Define logarithmic bins
+	bins = {'time': np.logspace(-2, 1, 25)}  # From 0.01s to 10s
 
-   # Step 4: Plot results
-   plt.figure(figsize=(10, 6))
-   
-   r = sf_result['sf_mean'].coords['time']
-   sf_mean = sf_result['sf_mean'].values
-   sf_std = sf_result['sf_std'].values
-   
-   plt.loglog(r, sf_mean, 'b-', linewidth=2, label='Structure Function')
-   plt.fill_between(r, sf_mean - sf_std, sf_mean + sf_std, 
-                    alpha=0.3, color='blue', label='±1σ')
-   
-   # Add theoretical scaling
-   plt.loglog(r, 0.1 * r**(2/3), 'r--', label='r^(2/3) scaling')
-   
-   plt.xlabel('Separation (s)')
-   plt.ylabel('Structure Function')
-   plt.title('2nd-order Structure Function')
-   plt.legend()
-   plt.grid(True, alpha=0.3)
-   plt.show()
+	# Step 3: Calculate 2nd-order structure function
+	sf_result = pyturbo_sf.bin_sf_1d(
+	    ds=ds,
+	    variables_names=["velocity"],
+	    order=2,
+	    bins=bins,
+	    fun='scalar',
+	    bootsize=50,                    # Bootstrap sample size
+	    initial_nbootstrap=30,          # Initial bootstrap iterations
+	    max_nbootstrap=100,             # Maximum bootstrap iterations
+	    convergence_eps=0.05,           # Convergence threshold
+	    backend='loky'                  # Parallel backend
+	)
 
-   print(f"Calculation completed in {sf_result.attrs['wall_time']:.2f} seconds")
+	# Step 4: Plot results
+	plt.figure(figsize=(10, 6))
 
+	r = sf_result.bin.values
+	sf_mean = sf_result.sf.values
+	sf_std = sf_result.std_error.values
+
+	plt.loglog(r, sf_mean, 'b-', linewidth=2, label='Structure Function')
+	plt.fill_between(r, sf_mean - sf_std, sf_mean + sf_std,
+		         alpha=0.3, color='blue', label='±1σ')
+
+	# Add theoretical scaling
+	plt.loglog(r, 0.1 * r**(2/3), 'r--', label='r^(2/3) scaling')
+
+	plt.xlabel('Separation (s)')
+	plt.ylabel('Structure Function')
+	plt.title('2nd-order Structure Function')
+	plt.legend()
+	plt.grid(True, alpha=0.3)
+	plt.show()
+
+	time_end = tm.time()
+	print(f"Calculation completed in {time_end-time_start:.2f} seconds")
+	
 2D Spatial Data Example
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -95,72 +98,72 @@ Now let's try a 2D example with velocity data:
 
 .. code-block:: python
 
-   # Step 1: Create 2D velocity field
-   nx, ny = 128, 128
-   Lx, Ly = 2*np.pi, 2*np.pi
-   
-   x = np.linspace(0, Lx, nx)
-   y = np.linspace(0, Ly, ny)
-   X, Y = np.meshgrid(x, y)
+	# Step 1: Create 2D velocity field
+	nx, ny = 128, 128
+	Lx, Ly = 2*np.pi, 2*np.pi
 
-   # Create a simple vortex field
-   u = -np.sin(Y) + 0.1 * np.random.randn(ny, nx)
-   v = np.sin(X) + 0.1 * np.random.randn(ny, nx)
+	x = np.linspace(0, Lx, nx)
+	y = np.linspace(0, Ly, ny)
+	X, Y = np.meshgrid(x, y)
 
-   # Create xarray Dataset
-   ds_2d = xr.Dataset(
-       data_vars={
-           "u": (["y", "x"], u),
-           "v": (["y", "x"], v),
-       },
-       coords={
-           "x": (["y", "x"], X),
-           "y": (["y", "x"], Y)
-       },
-       attrs={"description": "2D velocity field"}
-   )
+	# Create a simple vortex field
+	u = -np.sin(Y) + 0.1 * np.random.randn(ny, nx)
+	v = np.sin(X) + 0.1 * np.random.randn(ny, nx)
 
-   # Step 2: Define 2D bins
-   bins_2d = {
-       'x': np.logspace(-1, 0, 20),
-       'y': np.logspace(-1, 0, 20)
-   }
+	# Create xarray Dataset
+	ds_2d = xr.Dataset(
+	    data_vars={
+		"u": (["y", "x"], u),
+		"v": (["y", "x"], v),
+	    },
+	    coords={
+		"x": (["y", "x"], X),
+		"y": (["y", "x"], Y)
+	    },
+	    attrs={"description": "2D velocity field"}
+	)
 
-   # Step 3: Calculate longitudinal structure function
-   sf_2d = pyturbo_sf.bin_sf_2d(
-       ds=ds_2d,
-       variables_names=["u", "v"],
-       order=2,
-       bins=bins_2d,
-       fun='longitudinal',
-       bootsize={'x': 16, 'y': 16},
-       initial_nbootstrap=20,
-       max_nbootstrap=50,
-       convergence_eps=0.1,
-       backend='threading'
-   )
+	# Step 2: Define 2D bins
+	bins_2d = {
+	    'x': np.logspace(-1, 0, 20),
+	    'y': np.logspace(-1, 0, 20)
+	}
 
-   # Alternative: Calculate isotropic structure function
-   sf_iso = pyturbo_sf.get_isotropic_sf_2d(
-       ds=ds_2d,
-       variables_names=["u", "v"],
-       order=2,
-       bins={'r': np.logspace(-1, 0, 15)},
-       fun='longitudinal',
-       backend='threading'
-   )
+	# Step 3: Calculate longitudinal structure function
+	sf_2d = pyturbo_sf.bin_sf_2d(
+	    ds=ds_2d,
+	    variables_names=["u", "v"],
+	    order=2,
+	    bins=bins_2d,
+	    fun='longitudinal',
+	    bootsize={'x': 16, 'y': 16},
+	    initial_nbootstrap=20,
+	    max_nbootstrap=50,
+	    convergence_eps=0.1,
+	    backend='threading'
+	)
 
-   # Plot isotropic results
-   plt.figure(figsize=(8, 6))
-   r = sf_iso['sf_mean'].coords['r']
-   plt.loglog(r, sf_iso['sf_mean'], 'bo-', label='Longitudinal SF')
-   plt.loglog(r, 0.5 * r**(2/3), 'r--', label='r^(2/3)')
-   plt.xlabel('Separation r')
-   plt.ylabel('Structure Function')
-   plt.title('2D Isotropic Structure Function')
-   plt.legend()
-   plt.grid(True, alpha=0.3)
-   plt.show()
+	# Alternative: Calculate isotropic structure function
+	sf_iso = pyturbo_sf.get_isotropic_sf_2d(
+	    ds=ds_2d,
+	    variables_names=["u", "v"],
+	    order=2,
+	    bins={'r': np.logspace(-1, 0, 15)},
+	    fun='longitudinal',
+	    backend='threading'
+	)
+
+	# Plot isotropic results
+	plt.figure(figsize=(8, 6))
+	r = sf_iso.r.values
+	plt.loglog(r, sf_iso.sf.values, 'bo-', label='Longitudinal SF')
+	plt.loglog(r, 0.5 * r**(2/3), 'r--', label='r^(2/3)')
+	plt.xlabel('Separation r')
+	plt.ylabel('Structure Function')
+	plt.title('2D Isotropic Structure Function')
+	plt.legend()
+	plt.grid(True, alpha=0.3)
+	plt.show()
 
 Understanding the Output
 ------------------------
@@ -365,6 +368,8 @@ Best Practices
 
 5. **Memory management**: Use appropriate bootsize for your system
 6. **Parallel efficiency**: Test different backends for your hardware
+7. **Bootsize Pick**: Your bootsize should divide your datasize by a size of 2
+8. **Number of Bootstraps**: The smallest the bootstrap is, the higher the number of bootstraps should be
 
 Next Steps
 ----------

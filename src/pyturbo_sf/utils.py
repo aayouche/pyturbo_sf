@@ -3,8 +3,95 @@
 import numpy as np
 from datetime import datetime
 import bottleneck as bn
+from scipy import stats
 
+##################################Check if Log Binning#############################################
 
+def _is_log_spaced(arr):
+    """Check if array is logarithmically spaced."""
+    if len(arr) < 2:
+        return False
+    ratios = arr[1:] / arr[:-1]
+    ratio_std = np.std(ratios)
+    ratio_mean = np.mean(ratios)
+    if ratio_mean > 0 and ratio_std / ratio_mean < 0.01:
+        return abs(ratio_mean - 1.0) > 0.01
+    return False
+
+###################################################################################################
+
+##################################Confidence Interval##############################################
+
+def _calculate_confidence_intervals(means, stds, counts, confidence_level=0.95):
+    """Calculate confidence intervals."""
+    z_score = stats.norm.ppf((1 + confidence_level) / 2)
+    
+    ci_upper = np.full_like(means, np.nan)
+    ci_lower = np.full_like(means, np.nan)
+    
+    valid = ~np.isnan(means) & ~np.isnan(stds) & (counts > 1)
+    if np.any(valid):
+        ci_upper[valid] = means[valid] + z_score * stds[valid]
+        ci_lower[valid] = means[valid] - z_score * stds[valid]
+    
+    return ci_upper, ci_lower
+
+###################################################################################################
+
+##################################Mask Quality#####################################################
+
+def _calculate_quality_mask(sf_bessel, sf_stds, point_counts, eiso, converged,
+                                min_points=10, max_isotropy_error=None, max_std_ratio=None):
+    """
+    Calculate quality mask for reliable estimates in 2D/3D.
+    
+    Parameters
+    ----------
+    sf_bessel : array
+        Bessel-weighted structure function values.
+    sf_stds : array
+        Standard errors.
+    point_counts : array
+        Number of contributing points.
+    eiso : array
+        Isotropy errors.
+    converged : array
+        Convergence status.
+    min_points : int
+        Minimum points required. Default is 10.
+    max_isotropy_error : float, optional
+        Maximum allowed isotropy error.
+    max_std_ratio : float, optional
+        Maximum allowed std/mean ratio.
+        
+    Returns
+    -------
+    mask : array
+        Boolean mask (True = reliable).
+    """
+    mask = np.ones_like(sf_bessel, dtype=bool)
+    
+    # Exclude NaN values
+    mask &= ~np.isnan(sf_bessel)
+    
+    # Exclude low point counts
+    mask &= point_counts >= min_points
+    
+    # Exclude high isotropy error
+    if max_isotropy_error is not None:
+        valid_eiso = ~np.isnan(eiso)
+        mask &= (eiso <= max_isotropy_error) | ~valid_eiso
+    
+    # Exclude high relative uncertainty
+    if max_std_ratio is not None:
+        valid_ratio = ~np.isnan(sf_stds) & (np.abs(sf_bessel) > 1e-10)
+        std_ratio = np.where(valid_ratio, np.abs(sf_stds / sf_bessel), np.nan)
+        mask &= (std_ratio <= max_std_ratio) | np.isnan(std_ratio)
+    
+    return mask
+    
+###################################################################################################
+   
 ###################################Shifting Functions####################################################
 # 1D
 
@@ -129,7 +216,7 @@ def fast_shift_3d(input_array, z_shift=0, y_shift=0, x_shift=0):
 
     # Handle different shift combinations
     if x_shift == 0 and y_shift == 0 and z_shift == 0:
-        shifted_xyz_array = input_array
+        shifted_xyz_array = input_array.copy()
     elif y_shift == 0 and z_shift == 0:
         shifted_xyz_array[:, :, :-x_shift] = input_array[:, :, x_shift:]
     elif x_shift == 0 and z_shift == 0:

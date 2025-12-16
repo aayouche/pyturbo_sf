@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.abspath('../src'))  # Point directly to your package
 project = 'PyTurbo_SF'
 copyright = '2024, PyTurbo_SF Team'
 author = 'PyTurbo_SF Team'
-release = '1.0.0'
-version = '1.0.0'
+release = '1.0.5'
+version = '1.0.5'
 
 # -- General configuration ---------------------------------------------------
 extensions = [
