@@ -8,28 +8,21 @@ version: 2
 build:
   os: ubuntu-22.04
   tools:
-    python: "3.9"
+    python: "3.11"
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
   configuration: docs/source/conf.py
   fail_on_warning: false
 
-# Disable additional formats for now to avoid PDF conflicts
-# formats:
-#   - pdf
-#   - epub
-
-# Optional but recommended, declare the Python requirements required
-# to build your documentation
-# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
+# Python requirements
 python:
   install:
     - requirements: docs/requirements.txt
     - method: pip
       path: .
 
-# Additional configuration
+# Search ranking
 search:
   ranking:
     "tutorials/*": 2
