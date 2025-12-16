@@ -1,428 +1,45 @@
-/* Custom CSS for PyTurbo_SF Documentation */
-
-/* ==========================================================================
-   CSS VARIABLES - Custom Color Scheme
-   ========================================================================== */
-
-:root {
-    --pyturbo-primary: #2980B9;
-    --pyturbo-secondary: #3498DB;
-    --pyturbo-accent: #E74C3C;
-    --pyturbo-dark: #2C3E50;
-    --pyturbo-light: #ECF0F1;
-    
-    /* Sidebar colors - HIGH CONTRAST */
-    --sidebar-bg: #1e2a38;
-    --sidebar-text: #e8eaed;
-    --sidebar-text-hover: #ffffff;
-    --sidebar-active-bg: #2980B9;
-    --sidebar-hover-bg: #2c3e50;
-    --sidebar-caption: #8cb4d8;
+/* color adjustments to fit logo theme */
+.wy-menu > .caption > span.caption-text {
+    color: #92c3e2;
 }
-
-/* ==========================================================================
-   SIDEBAR NAVIGATION - IMPROVED CONTRAST
-   ========================================================================== */
-
-/* Logo/search area background */
+.wy-nav-top {
+    background-color: #92c3e2;
+    color: #ffffff;
+}
 .wy-side-nav-search {
-    background-color: var(--pyturbo-primary) !important;
+    background-color: #92c3e2;
 }
-
-.wy-side-nav-search > a {
-    color: #ffffff !important;
-}
-
-.wy-side-nav-search .wy-dropdown > a img.logo {
-    max-width: 100%;
-    height: auto;
-    margin-bottom: 0.5em;
-}
-
-/* Search input */
 .wy-side-nav-search input[type="text"] {
-    border: 1px solid #4a6785;
-    background-color: #1a2530;
-    color: #ffffff;
+    border-color: #360e24;
 }
 
-.wy-side-nav-search input[type="text"]::placeholder {
-    color: #a0b0c0;
+/* fix for position of equation numbers
+ * https://github.com/rtfd/sphinx_rtd_theme/issues/301
+ */
+.eqno {
+    margin-left: 5px;
+    float: right;
 }
-
-/* Version text */
-.wy-side-nav-search > div.version {
-    color: #c8ddf0 !important;
+.math .headerlink {
+    display: none;
+    visibility: hidden;
 }
-
-/* Main sidebar navigation area */
-.wy-nav-side {
-    background-color: var(--sidebar-bg) !important;
-}
-
-.wy-side-scroll {
-    background-color: var(--sidebar-bg) !important;
-}
-
-/* All navigation links - HIGH CONTRAST */
-.wy-menu-vertical a {
-    color: var(--sidebar-text) !important;
-}
-
-.wy-menu-vertical a:hover {
-    background-color: var(--sidebar-hover-bg) !important;
-    color: var(--sidebar-text-hover) !important;
-}
-
-/* Section captions (User Guide, API Reference, etc.) */
-.wy-menu-vertical p.caption {
-    color: var(--sidebar-caption) !important;
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.8em;
-    letter-spacing: 0.5px;
-    margin-top: 1.5em;
-    padding-left: 0.8em;
-}
-
-/* Caption icons/spans */
-.wy-menu-vertical p.caption span.caption-text {
-    color: var(--sidebar-caption) !important;
-}
-
-/* Current/active page - STRONG HIGHLIGHT */
-.wy-menu-vertical li.current > a {
-    background-color: var(--sidebar-active-bg) !important;
-    color: #ffffff !important;
-    font-weight: 600;
-    border-left: 4px solid #5dade2;
-    padding-left: calc(1.618em - 4px);
-}
-
-.wy-menu-vertical li.current a:hover {
-    background-color: var(--pyturbo-secondary) !important;
-}
-
-/* Top-level current section */
-.wy-menu-vertical li.toctree-l1.current > a {
-    background-color: #22648c !important;
-    border-bottom: 1px solid #1a4d6b;
-}
-
-/* Nested current items */
-.wy-menu-vertical li.toctree-l2.current > a {
-    background-color: var(--sidebar-active-bg) !important;
-}
-
-.wy-menu-vertical li.toctree-l2.current li.toctree-l3 > a {
-    background-color: transparent !important;
-}
-
-/* Submenu items */
-.wy-menu-vertical li.toctree-l2 a,
-.wy-menu-vertical li.toctree-l3 a,
-.wy-menu-vertical li.toctree-l4 a {
-    color: #c0d0e0 !important;
-}
-
-.wy-menu-vertical li.toctree-l2 a:hover,
-.wy-menu-vertical li.toctree-l3 a:hover,
-.wy-menu-vertical li.toctree-l4 a:hover {
-    color: #ffffff !important;
-    background-color: #34495e !important;
-}
-
-/* Submenu background */
-.wy-menu-vertical li.current ul {
-    background-color: #1a2530 !important;
-}
-
-/* Expand/collapse arrows */
-.wy-menu-vertical li span.toctree-expand {
-    color: #8090a0 !important;
-}
-
-.wy-menu-vertical li.current span.toctree-expand {
-    color: #ffffff !important;
-}
-
-/* ==========================================================================
-   SCROLLBAR STYLING
-   ========================================================================== */
-
-.wy-side-scroll::-webkit-scrollbar {
-    width: 8px;
-}
-
-.wy-side-scroll::-webkit-scrollbar-track {
-    background: var(--sidebar-bg);
-}
-
-.wy-side-scroll::-webkit-scrollbar-thumb {
-    background-color: #4a5a6a;
-    border-radius: 4px;
-}
-
-.wy-side-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: #5a6a7a;
-}
-
-/* ==========================================================================
-   MAIN CONTENT AREA
-   ========================================================================== */
-
-/* Header styling */
-.wy-nav-content-wrap {
-    background: linear-gradient(135deg, var(--pyturbo-light) 0%, #ffffff 100%);
-}
-
-/* ==========================================================================
-   CODE BLOCKS
-   ========================================================================== */
-
-.highlight {
-    border-left: 4px solid var(--pyturbo-primary);
-    background-color: #f8f9fa;
-}
-
-.highlight-python .highlight {
-    background-color: #f8f9fa;
-}
-
-/* ==========================================================================
-   MATH EQUATIONS
-   ========================================================================== */
-
-.math {
-    color: var(--pyturbo-dark);
-}
-
-/* ==========================================================================
-   ADMONITIONS
-   ========================================================================== */
-
-.admonition {
-    border-left: 4px solid var(--pyturbo-primary);
-}
-
-.admonition.note {
-    background-color: #e7f3fe;
-    border-left-color: var(--pyturbo-secondary);
-}
-
-.admonition.note .admonition-title {
-    background-color: var(--pyturbo-secondary);
-    color: #ffffff;
-}
-
-.admonition.warning {
-    background-color: #fdf2f2;
-    border-left-color: var(--pyturbo-accent);
-}
-
-.admonition.warning .admonition-title {
-    background-color: var(--pyturbo-accent);
-    color: #ffffff;
-}
-
-.admonition.important {
-    background-color: #fef9e7;
-    border-left-color: #F39C12;
-}
-
-.admonition.important .admonition-title {
-    background-color: #F39C12;
-    color: #212529;
-}
-
-.admonition.tip {
-    background-color: #e8f8f5;
-    border-left-color: #1abc9c;
-}
-
-.admonition.tip .admonition-title {
-    background-color: #1abc9c;
-    color: #ffffff;
-}
-
-/* ==========================================================================
-   TABLES
-   ========================================================================== */
-
-.wy-table-responsive table td, 
-.wy-table-responsive table th {
-    white-space: normal;
-}
-
-.wy-table thead th,
-table.docutils thead th {
-    background-color: var(--pyturbo-dark) !important;
-    color: #ffffff !important;
-    font-weight: 600;
-    padding: 12px 10px;
-}
-
-.wy-table-striped tr:nth-child(2n-1) td,
-table.docutils tbody tr:nth-child(odd) {
-    background-color: #f8f9fa;
-}
-
-table.docutils tbody tr:hover {
-    background-color: #e9ecef;
-}
-
-table.docutils td,
-table.docutils th {
-    padding: 10px 8px;
-}
-
-/* ==========================================================================
-   BUTTONS
-   ========================================================================== */
-
-.btn {
-    border-radius: 4px;
-    transition: all 0.2s;
-}
-
-.btn-neutral {
-    background-color: var(--pyturbo-primary) !important;
-    color: white !important;
-}
-
-.btn-neutral:hover {
-    background-color: var(--pyturbo-secondary) !important;
-    color: white !important;
-}
-
-/* Copy button styling */
-.copybtn {
-    background-color: var(--pyturbo-primary);
-    color: white;
-    border: none;
-    border-radius: 3px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.copybtn:hover {
-    opacity: 1;
-}
-
-/* ==========================================================================
-   NOTEBOOK CELLS
-   ========================================================================== */
-
-.nbinput .prompt,
-.nboutput .prompt {
-    color: var(--pyturbo-primary);
-    font-weight: bold;
-}
-
-/* ==========================================================================
-   CUSTOM BADGES
-   ========================================================================== */
-
-.badge {
+.math:hover .headerlink {
     display: inline-block;
-    padding: 0.25em 0.4em;
-    font-size: 75%;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
+    visibility: visible;
+    margin-right: -0.7em;
 }
 
-.badge-python {
-    background-color: #3776ab;
-    color: white;
+/* fix for property line spacing
+* https://github.com/rtfd/sphinx_rtd_theme/issues/1301
+*/
+.property {
+    display: block !important;
+    padding-right: 8px;
+    max-width: 100%;
 }
 
-.badge-numpy {
-    background-color: #013243;
-    color: white;
-}
-
-.badge-xarray {
-    background-color: #0f4c81;
-    color: white;
-}
-
-/* ==========================================================================
-   PERFORMANCE INDICATORS
-   ========================================================================== */
-
-.performance-metric {
-    background-color: #e8f5e8;
-    border: 1px solid #c3e6c3;
-    border-radius: 4px;
-    padding: 0.5em;
-    margin: 0.5em 0;
-}
-
-.benchmark-result {
-    font-family: monospace;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 0.5em;
-    margin: 0.5em 0;
-}
-
-/* ==========================================================================
-   RESPONSIVE DESIGN
-   ========================================================================== */
-
-@media screen and (max-width: 768px) {
-    .wy-table-responsive {
-        margin-bottom: 1em;
-        overflow-x: auto;
-    }
-    
-    .highlight {
-        margin: 1em 0;
-    }
-    
-    .wy-nav-side {
-        background-color: var(--sidebar-bg) !important;
-    }
-    
-    .wy-menu-vertical a {
-        padding: 0.8em 1.2em;
-    }
-}
-
-/* ==========================================================================
-   FOOTER
-   ========================================================================== */
-
-.rst-footer-buttons {
-    margin-top: 2em;
-    border-top: 1px solid var(--pyturbo-light);
-    padding-top: 1em;
-}
-
-/* Version selector */
-.rst-versions {
-    background-color: var(--pyturbo-dark) !important;
-}
-
-.rst-versions .rst-current-version {
-    background-color: var(--pyturbo-primary) !important;
-    color: #ffffff !important;
-}
-
-.rst-versions .rst-other-versions {
-    background-color: #1a2530 !important;
-    color: #e0e0e0 !important;
-}
-
-.rst-versions .rst-other-versions a {
-    color: #c0d0e0 !important;
-}
-
-.rst-versions .rst-other-versions a:hover {
-    color: #ffffff !important;
+/* caption positions for tables and figures */
+.docutils caption {
+    caption-side: bottom;
 }
