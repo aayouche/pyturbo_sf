@@ -12,6 +12,54 @@ from .structure_functions import (
 
 from .utils import _is_log_spaced
 
+
+##################################################
+# HELPER FUNCTION FOR PROPER BINNING
+##################################################
+
+def _get_bin_indices_with_range_check(values, bin_edges, n_bins):
+    """
+    Get bin indices with proper handling of edge cases.
+    
+    Unlike np.clip(np.digitize(...) - 1, 0, n_bins - 1) which forces
+    out-of-range values into edge bins, this function:
+    1. Properly handles values exactly at the last bin edge (includes them)
+    2. Returns a mask indicating which values are in range
+    3. Returns bin indices (only valid where in_range_mask is True)
+    
+    Parameters
+    ----------
+    values : array
+        Values to bin
+    bin_edges : array
+        Bin edge values
+    n_bins : int
+        Number of bins (len(bin_edges) - 1)
+        
+    Returns
+    -------
+    bin_idx : array
+        Bin indices (only valid where in_range_mask is True)
+    in_range_mask : array
+        Boolean mask indicating which values are within bin range
+    """
+    # Get raw bin indices
+    bin_idx = np.digitize(values, bin_edges) - 1
+    
+    # Handle last edge: values exactly at last edge should go to last bin
+    # (digitize treats last edge as outside, we want it included)
+    at_last_edge = np.isclose(values, bin_edges[-1], rtol=1e-10, atol=1e-10)
+    bin_idx = np.where(at_last_edge, n_bins - 1, bin_idx)
+    
+    # Create range mask: include values >= first edge AND <= last edge
+    in_range_mask = (values >= bin_edges[0]) & (values <= bin_edges[-1])
+    
+    # Clip indices to valid range (for safety, though they should be correct now)
+    bin_idx = np.clip(bin_idx, 0, n_bins - 1)
+    
+    return bin_idx, in_range_mask
+
+
 ##################################################################################################1D###############################################################################################################
 def _initialize_1d_bins(bin_edges, dim_name):
     """
@@ -105,12 +153,13 @@ def _process_no_bootstrap_1d(ds, dim_name, variables_names, order, fun, bins_con
     sf_stds : array
         Standard deviations
     point_counts : array
-        Point counts per bin    """
+        Point counts per bin
+    """
     print("\nNo bootstrappable dimensions available. "
           "Calculating structure function once with full dataset.")
     
     # Calculate structure function once with the entire dataset
-    results, separations = calculate_structure_function_1d(
+    results, separations, pair_counts = calculate_structure_function_1d(
         ds=ds,
         dim=dim_name,
         variables_names=variables_names,
@@ -128,12 +177,21 @@ def _process_no_bootstrap_1d(ds, dim_name, variables_names, order, fun, bins_con
     if len(valid_results) == 0:
         raise ValueError("No valid results found to bin")
     
-    # Create bin indices using numpy's digitize
-    bin_indices = np.clip(np.digitize(valid_separations, bins_config['bin_edges']) - 1, 
-                         0, bins_config['n_bins'] - 1)
+    # Get bin indices WITH PROPER RANGE CHECKING
+    n_bins = bins_config['n_bins']
+    bin_indices, in_range_mask = _get_bin_indices_with_range_check(
+        valid_separations, bins_config['bin_edges'], n_bins
+    )
+    
+    # Apply range mask - only use values within bin range
+    valid_results = valid_results[in_range_mask]
+    valid_separations = valid_separations[in_range_mask]
+    bin_indices = bin_indices[in_range_mask]
+    
+    if len(valid_results) == 0:
+        raise ValueError("No valid results found within bin range")
     
     # Initialize arrays for binning
-    n_bins = bins_config['n_bins']
     sf_means = np.full(n_bins, np.nan)
     sf_stds = np.full(n_bins, np.nan)
     point_counts = np.zeros(n_bins, dtype=np.int_)
@@ -210,8 +268,7 @@ def _calculate_bin_density_1d(point_counts, bin_edges):
 
 def _create_1d_dataset(results, bins_config, dim_name, order, fun,
                      bootstrappable_dims, convergence_eps, max_nbootstrap,
-                     initial_nbootstrap, confidence_level, backend,
-                     ci_method='percentile'):
+                     initial_nbootstrap, confidence_level, backend):
     """
     Create output dataset for 1D binning.
     
@@ -239,15 +296,13 @@ def _create_1d_dataset(results, bins_config, dim_name, order, fun,
         Confidence level for intervals
     backend : str
         Backend used
-    ci_method : str
-        Method used for CI calculation ('standard' or 'percentile')
         
     Returns
     -------
     ds_binned : xarray.Dataset
         Binned structure function dataset
     """
-    # Use pre-computed CIs if available (from bootstrap loop with ci_method)
+    # Use pre-computed CIs if available
     if 'ci_lower' in results and 'ci_upper' in results:
         ci_lower = results['ci_lower']
         ci_upper = results['ci_upper']
@@ -263,7 +318,6 @@ def _create_1d_dataset(results, bins_config, dim_name, order, fun,
         if np.any(valid_bins):
             ci_upper[valid_bins] = results['sf_means'][valid_bins] + z_score * results['sf_stds'][valid_bins]
             ci_lower[valid_bins] = results['sf_means'][valid_bins] - z_score * results['sf_stds'][valid_bins]
-        ci_method = 'standard'  # Mark that we used standard method
     
     # Create output dataset
     ds_binned = xr.Dataset(
@@ -292,11 +346,10 @@ def _create_1d_dataset(results, bins_config, dim_name, order, fun,
             'variables': results.get('variables_names', []),
             'dimension': dim_name,
             'confidence_level': confidence_level,
-            'ci_method': ci_method,
             'bootstrappable_dimensions': ','.join(bootstrappable_dims),
             'backend': backend,
             'weighting': 'volume_element',
-            'bootstrap_se_method': 'unweighted_std'
+            'bootstrap_se_method': 'n_eff_correction'
         }
     )
     
@@ -347,12 +400,25 @@ def _initialize_2d_bins(bins_x, bins_y, dims_order):
     }
 
 def _process_no_bootstrap_2d(ds, dims, variables_names, order, fun, bins, time_dims, conditioning_var=None, conditioning_bins=None):
-    """Handle the special case of no bootstrappable dimensions for 2D."""
+    """
+    Handle the special case of no bootstrappable dimensions for 2D.
+    
+    Returns
+    -------
+    sf_means : array
+        Weighted means
+    sf_stds : array
+        Standard deviations
+    point_counts : array
+        Point counts per bin
+    bins_config : dict
+        Bin configuration
+    """
     print("\nNo bootstrappable dimensions available. "
           "Calculating structure function once with full dataset.")
     
     # Calculate structure function once
-    results, dx_vals, dy_vals = calculate_structure_function_2d(
+    results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
         ds=ds,
         dims=dims,
         variables_names=variables_names,
@@ -372,11 +438,24 @@ def _process_no_bootstrap_2d(ds, dims, variables_names, order, fun, bins, time_d
     valid_results = results[valid_mask]
     valid_dx = dx_vals[valid_mask]
     valid_dy = dy_vals[valid_mask]
-    # Create 2D binning grid
-    x_bins_idx = np.clip(np.digitize(valid_dx, bins_config['bins_x']) - 1, 
-                        0, bins_config['n_bins_x'] - 1)
-    y_bins_idx = np.clip(np.digitize(valid_dy, bins_config['bins_y']) - 1,
-                        0, bins_config['n_bins_y'] - 1)
+    
+    # Get bin indices WITH PROPER RANGE CHECKING
+    x_bins_idx, x_in_range = _get_bin_indices_with_range_check(
+        valid_dx, bins_config['bins_x'], bins_config['n_bins_x']
+    )
+    y_bins_idx, y_in_range = _get_bin_indices_with_range_check(
+        valid_dy, bins_config['bins_y'], bins_config['n_bins_y']
+    )
+    
+    # Combined range mask - both x and y must be in range
+    in_range_mask = x_in_range & y_in_range
+    
+    # Apply range mask
+    valid_results = valid_results[in_range_mask]
+    valid_dx = valid_dx[in_range_mask]
+    valid_dy = valid_dy[in_range_mask]
+    x_bins_idx = x_bins_idx[in_range_mask]
+    y_bins_idx = y_bins_idx[in_range_mask]
     
     # Volume element weights
     weights = np.abs(valid_dx * valid_dy)
@@ -432,13 +511,33 @@ def _calculate_bin_density_2d(point_counts, bins_x, bins_y):
 
 def _create_2d_dataset(results, bins_config, dims, order, fun, 
                       bootstrappable_dims, time_dims, convergence_eps,
-                      max_nbootstrap, initial_nbootstrap, backend):
+                      max_nbootstrap, initial_nbootstrap, backend,
+                      confidence_level=0.95):
     """Create output dataset for 2D binning."""
+    
+    # Use pre-computed CIs if available
+    if 'ci_lower' in results and 'ci_upper' in results:
+        ci_lower = results['ci_lower']
+        ci_upper = results['ci_upper']
+    else:
+        # Fallback to normal approximation
+        from scipy import stats
+        z_score = stats.norm.ppf((1 + confidence_level) / 2)
+        
+        ci_upper = np.full_like(results['sf_means'], np.nan)
+        ci_lower = np.full_like(results['sf_means'], np.nan)
+        
+        valid_bins = ~np.isnan(results['sf_means']) & ~np.isnan(results['sf_stds'])
+        if np.any(valid_bins):
+            ci_upper[valid_bins] = results['sf_means'][valid_bins] + z_score * results['sf_stds'][valid_bins]
+            ci_lower[valid_bins] = results['sf_means'][valid_bins] - z_score * results['sf_stds'][valid_bins]
     
     ds_binned = xr.Dataset(
         data_vars={
             'sf': ((dims[0], dims[1]), results['sf_means']),
             'std_error': ((dims[0], dims[1]), results['sf_stds']),
+            'ci_upper': ((dims[0], dims[1]), ci_upper),
+            'ci_lower': ((dims[0], dims[1]), ci_lower),
             'nbootstraps': ((dims[0], dims[1]), results['bin_bootstraps']),
             'density': ((dims[0], dims[1]), results['bin_density']),
             'point_counts': ((dims[0], dims[1]), results['point_counts']),
@@ -461,8 +560,9 @@ def _create_2d_dataset(results, bins_config, dims, order, fun,
             'bootstrappable_dimensions': ','.join(bootstrappable_dims),
             'time_dimensions': ','.join([dim for dim, is_time in time_dims.items() if is_time]),
             'backend': backend,
+            'confidence_level': confidence_level,
             'weighting': 'volume_element',
-            'bootstrap_se_method': 'unweighted_std'
+            'bootstrap_se_method': 'n_eff_correction'
         }
     )
     
@@ -533,12 +633,25 @@ def _initialize_3d_bins(bins_x, bins_y, bins_z, dims_order):
     }
 
 def _process_no_bootstrap_3d(ds, dims, variables_names, order, fun, bins, time_dims, conditioning_var=None, conditioning_bins=None):
-    """Handle the special case of no bootstrappable dimensions for 3D."""
+    """
+    Handle the special case of no bootstrappable dimensions for 3D.
+    
+    Returns
+    -------
+    sf_means : array
+        Weighted means
+    sf_stds : array
+        Standard deviations
+    point_counts : array
+        Point counts per bin
+    bins_config : dict
+        Bin configuration
+    """
     print("\nNo bootstrappable dimensions available. "
           "Calculating structure function once with full dataset.")
     
     # Calculate structure function once
-    results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+    results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
         ds=ds,
         dims=dims,
         variables_names=variables_names,
@@ -559,13 +672,29 @@ def _process_no_bootstrap_3d(ds, dims, variables_names, order, fun, bins, time_d
     valid_dx = dx_vals[valid_mask]
     valid_dy = dy_vals[valid_mask]
     valid_dz = dz_vals[valid_mask]
-    # Create 3D binning grid
-    x_bins_idx = np.clip(np.digitize(valid_dx, bins_config['bins_x']) - 1, 
-                        0, bins_config['n_bins_x'] - 1)
-    y_bins_idx = np.clip(np.digitize(valid_dy, bins_config['bins_y']) - 1,
-                        0, bins_config['n_bins_y'] - 1)
-    z_bins_idx = np.clip(np.digitize(valid_dz, bins_config['bins_z']) - 1,
-                        0, bins_config['n_bins_z'] - 1)
+    
+    # Get bin indices WITH PROPER RANGE CHECKING
+    x_bins_idx, x_in_range = _get_bin_indices_with_range_check(
+        valid_dx, bins_config['bins_x'], bins_config['n_bins_x']
+    )
+    y_bins_idx, y_in_range = _get_bin_indices_with_range_check(
+        valid_dy, bins_config['bins_y'], bins_config['n_bins_y']
+    )
+    z_bins_idx, z_in_range = _get_bin_indices_with_range_check(
+        valid_dz, bins_config['bins_z'], bins_config['n_bins_z']
+    )
+    
+    # Combined range mask - all dimensions must be in range
+    in_range_mask = x_in_range & y_in_range & z_in_range
+    
+    # Apply range mask
+    valid_results = valid_results[in_range_mask]
+    valid_dx = valid_dx[in_range_mask]
+    valid_dy = valid_dy[in_range_mask]
+    valid_dz = valid_dz[in_range_mask]
+    x_bins_idx = x_bins_idx[in_range_mask]
+    y_bins_idx = y_bins_idx[in_range_mask]
+    z_bins_idx = z_bins_idx[in_range_mask]
     
     # Volume element weights
     weights = np.abs(valid_dx * valid_dy * valid_dz)
@@ -628,14 +757,33 @@ def _calculate_bin_density_3d(point_counts, bins_x, bins_y, bins_z):
 
 def _create_3d_dataset(results, bins_config, dims, order, fun, 
                       bootstrappable_dims, time_dims, convergence_eps,
-                      max_nbootstrap, initial_nbootstrap, backend, variables_names
-                      ):
+                      max_nbootstrap, initial_nbootstrap, backend, variables_names,
+                      confidence_level=0.95):
     """Create output dataset for 3D binning."""
+    
+    # Use pre-computed CIs if available
+    if 'ci_lower' in results and 'ci_upper' in results:
+        ci_lower = results['ci_lower']
+        ci_upper = results['ci_upper']
+    else:
+        # Fallback to normal approximation
+        from scipy import stats
+        z_score = stats.norm.ppf((1 + confidence_level) / 2)
+        
+        ci_upper = np.full_like(results['sf_means'], np.nan)
+        ci_lower = np.full_like(results['sf_means'], np.nan)
+        
+        valid_bins = ~np.isnan(results['sf_means']) & ~np.isnan(results['sf_stds'])
+        if np.any(valid_bins):
+            ci_upper[valid_bins] = results['sf_means'][valid_bins] + z_score * results['sf_stds'][valid_bins]
+            ci_lower[valid_bins] = results['sf_means'][valid_bins] - z_score * results['sf_stds'][valid_bins]
     
     ds_binned = xr.Dataset(
         data_vars={
             'sf': ((dims[0], dims[1], dims[2]), results['sf_means']),
             'std_error': ((dims[0], dims[1], dims[2]), results['sf_stds']),
+            'ci_upper': ((dims[0], dims[1], dims[2]), ci_upper),
+            'ci_lower': ((dims[0], dims[1], dims[2]), ci_lower),
             'nbootstraps': ((dims[0], dims[1], dims[2]), results['bin_bootstraps']),
             'density': ((dims[0], dims[1], dims[2]), results['bin_density']),
             'point_counts': ((dims[0], dims[1], dims[2]), results['point_counts']),
@@ -660,8 +808,9 @@ def _create_3d_dataset(results, bins_config, dims, order, fun,
             'bootstrappable_dimensions': ','.join(bootstrappable_dims),
             'time_dimensions': ','.join([dim for dim, is_time in time_dims.items() if is_time]),
             'backend': backend,
+            'confidence_level': confidence_level,
             'weighting': 'volume_element',
-            'bootstrap_se_method': 'unweighted_std'
+            'bootstrap_se_method': 'n_eff_correction'
         }
     )
     

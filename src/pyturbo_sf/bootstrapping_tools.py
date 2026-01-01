@@ -34,110 +34,120 @@ from .bessel_tools import (
 from scipy.special import jv  # Bessel function of the first kind
 
 
-def _weighted_percentile(values, weights, percentile):
-    """
-    Compute weighted percentile.
-    
-    Parameters
-    ----------
-    values : array
-        Data values
-    weights : array
-        Weights for each value
-    percentile : float
-        Percentile to compute (0-100)
-        
-    Returns
-    -------
-    float
-        Weighted percentile value
-    """
-    # Sort by values
-    sorted_indices = np.argsort(values)
-    sorted_values = values[sorted_indices]
-    sorted_weights = weights[sorted_indices]
-    
-    # Compute cumulative weights
-    cumulative_weights = np.cumsum(sorted_weights)
-    total_weight = cumulative_weights[-1]
-    
-    # Normalize to 0-100 scale
-    cumulative_percentiles = 100 * (cumulative_weights - 0.5 * sorted_weights) / total_weight
-    
-    # Interpolate to find the value at the desired percentile
-    return np.interp(percentile, cumulative_percentiles, sorted_values)
+##################################################
+# BOOTSTRAP STATISTICS
+##################################################
 
 
-def _compute_weighted_bootstrap_stats(bootstrap_samples, confidence_level=0.95, ci_method='percentile'):
+def _compute_weighted_bootstrap_stats(bootstrap_samples, confidence_level=0.95):
     """
-    Compute weighted mean, std, and confidence intervals from bootstrap samples.
+    Compute bootstrap statistics with proper effective sample size correction.
     
     Parameters
     ----------
     bootstrap_samples : list of dict
-        Each dict contains 'mean' and 'weight'
+        Each dict contains 'mean' and 'weight' (number of points in that bootstrap)
     confidence_level : float
-        Confidence level for intervals
-    ci_method : str
-        'percentile' or 'standard'
+        Confidence level for intervals (default: 0.95)
         
     Returns
     -------
-    weighted_mean : float
-        Weighted mean of bootstrap means
-    weighted_std : float
-        Weighted standard deviation
+    theta_hat : float
+        Point estimate (weighted mean of bootstrap means)
+    std_error : float
+        Bootstrap standard error with effective sample size correction
     ci_lower : float
-        Lower confidence interval
+        Lower confidence interval bound (theta_hat - z * SE)
     ci_upper : float
-        Upper confidence interval
+        Upper confidence interval bound (theta_hat + z * SE)
+        
+    Notes
+    -----
+    The standard error is computed using effective sample size:
+    
+    1. n_eff = (sum(w))^2 / sum(w^2)
+    2. var_corrected = var_weighted * n_eff / (n_eff - 1)  [Bessel correction]
+    3. SE = sqrt(var_corrected / n_eff)
+    
+    This properly accounts for:
+    - Unequal weights in bootstrap samples
+    - Bias correction (Bessel's correction)
+    - Variance of the mean (not variance of data)
     """
+    from scipy import stats
+    
     boot_means = np.array([s['mean'] for s in bootstrap_samples])
-    boot_weights = np.array([s['weight'] for s in bootstrap_samples])
+    boot_weights = np.array([s['weight'] for s in bootstrap_samples], dtype=np.float64)
     
-    # Weighted mean
-    weighted_mean = np.average(boot_means, weights=boot_weights)
+    # Handle edge cases
+    if len(boot_means) == 0:
+        return np.nan, np.nan, np.nan, np.nan
     
-    # Weighted variance and std
-    weighted_var = np.average((boot_means - weighted_mean)**2, weights=boot_weights)
-    weighted_std = np.sqrt(weighted_var)
+    if len(boot_means) == 1:
+        return boot_means[0], np.nan, np.nan, np.nan
     
-    # Confidence intervals
-    alpha = 1 - confidence_level
+    # Point estimate: weighted mean
+    sum_w = np.sum(boot_weights)
+    theta_hat = np.sum(boot_weights * boot_means) / sum_w
     
-    if ci_method == 'percentile':
-        ci_lower = _weighted_percentile(boot_means, boot_weights, alpha / 2 * 100)
-        ci_upper = _weighted_percentile(boot_means, boot_weights, (1 - alpha / 2) * 100)
+    # Step 3.1: Effective sample size
+    sum_w_sq = np.sum(boot_weights ** 2)
+    n_eff = (sum_w ** 2) / sum_w_sq
+    
+    # Step 3.2: Corrected weighted variance
+    # First compute weighted variance
+    weighted_var = np.sum(boot_weights * (boot_means - theta_hat) ** 2) / sum_w
+    
+    # Apply Bessel correction: var_corrected = var_weighted * n_eff / (n_eff - 1)
+    if n_eff > 1:
+        var_corrected = weighted_var * n_eff / (n_eff - 1)
     else:
-        z_score = stats.norm.ppf((1 + confidence_level) / 2)
-        ci_lower = weighted_mean - z_score * weighted_std
-        ci_upper = weighted_mean + z_score * weighted_std
+        var_corrected = weighted_var
     
-    return weighted_mean, weighted_std, ci_lower, ci_upper
+    # Step 3.3: Standard error = sqrt(var_corrected / n_eff)
+    if n_eff > 0:
+        std_error = np.sqrt(var_corrected / n_eff)
+    else:
+        std_error = np.nan
+    
+    # Confidence intervals: theta_hat ± z * SE
+    z_score = stats.norm.ppf((1 + confidence_level) / 2)
+    ci_lower = theta_hat - z_score * std_error
+    ci_upper = theta_hat + z_score * std_error
+    
+    return theta_hat, std_error, ci_lower, ci_upper
 
 
 ##################################################1D#####################################################################################
 def run_bootstrap_sf_1d(args):
     """Standalone bootstrap function for parallel processing."""
     ds, dim, variables_names, order, fun, nb, spacing, num_bootstrappable, boot_indexes, bootsize, conditioning_var, conditioning_bins = args
-    results, separations = calculate_structure_function_1d(
+    results, separations, pair_counts = calculate_structure_function_1d(
         ds=ds, dim=dim, variables_names=variables_names, order=order, fun=fun,
         nb=nb, spacing=spacing, num_bootstrappable=num_bootstrappable,
         boot_indexes=boot_indexes, bootsize=bootsize, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
     )
-    return results, separations
+    return results, separations, pair_counts
 
 def monte_carlo_simulation_1d(ds, dim, variables_names, order, nbootstrap, bootsize, 
                              num_bootstrappable, all_spacings, boot_indexes,
                              fun='scalar', spacing=None, n_jobs=-1, backend='threading',
-                             conditioning_var=None, conditioning_bins=None):
+                             conditioning_var=None, conditioning_bins=None, seed=None):
     """
     Run Monte Carlo simulation for structure function calculation with multiple bootstrap samples.
+    
+    Parameters
+    ----------
+    seed : int, optional
+        Random seed for reproducibility. If None, uses random state.
     """
+    # Create random generator (seeded if provided)
+    rng = np.random.default_rng(seed)
+    
     # If no bootstrappable dimensions, just calculate once with the full dataset
     if num_bootstrappable == 0:
         print("No bootstrappable dimensions. Calculating structure function once with full dataset.")
-        results, separations = calculate_structure_function_1d(
+        results, separations, pair_counts = calculate_structure_function_1d(
             ds=ds,
             dim=dim,
             variables_names=variables_names,
@@ -147,7 +157,7 @@ def monte_carlo_simulation_1d(ds, dim, variables_names, order, nbootstrap, boots
             conditioning_var=conditioning_var,
             conditioning_bins=conditioning_bins
         )
-        return [results], [separations]
+        return [results], [separations], [pair_counts]
     
     # Use default spacing of 1 if None provided
     if spacing is None:
@@ -174,7 +184,7 @@ def monte_carlo_simulation_1d(ds, dim, variables_names, order, nbootstrap, boots
     if not indexes or dim not in indexes or indexes[dim].shape[1] == 0:
         print(f"Warning: No valid indices for dimension {dim} with spacing {sp_value}.")
         # Fall back to calculating once with full dataset
-        results, separations = calculate_structure_function_1d(
+        results, separations, pair_counts = calculate_structure_function_1d(
             ds=ds,
             dim=dim,
             variables_names=variables_names,
@@ -184,10 +194,10 @@ def monte_carlo_simulation_1d(ds, dim, variables_names, order, nbootstrap, boots
             conditioning_var=conditioning_var,
             conditioning_bins=conditioning_bins
         )
-        return [results], [separations]
+        return [results], [separations], [pair_counts]
     
-    # Generate random indices for the bootstrappable dimension
-    random_indices = np.random.choice(indexes[dim].shape[1], size=nbootstrap)
+    # Generate random indices for the bootstrappable dimension (seeded)
+    random_indices = rng.choice(indexes[dim].shape[1], size=nbootstrap)
     
     
     # Calculate optimal batch size based on number of jobs and bootstraps
@@ -220,17 +230,20 @@ def monte_carlo_simulation_1d(ds, dim, variables_names, order, nbootstrap, boots
     # Unpack results
     sf_results = [r[0] for r in results]
     separations = [r[1] for r in results]
+    pair_counts_results = [r[2] for r in results]
     
-    return sf_results, separations
+    return sf_results, separations, pair_counts_results
 
 def _process_spacing_data_batch_1d(sf_results, separations, bin_edges, n_bins, 
                                    bin_accumulators, point_counts, bin_spacing_counts,
-                                   sp_value, bin_list, add_to_counts=True):
+                                   sp_value, bin_list, add_to_counts=True,
+                                   pair_counts_results=None):
     """
     Process structure function data for a specific spacing value with batch processing.
     
     FIXED: Now records each bootstrap mean independently rather than incrementally.
     Each bootstrap iteration produces one mean estimate per bin.
+    Uses pair_counts for proper weighting when combining separations into bins.
     """
     # Create a set of target bins for fast lookup
     target_bins = set(bin_list)
@@ -243,18 +256,17 @@ def _process_spacing_data_batch_1d(sf_results, separations, bin_edges, n_bins,
     for b in range(len(sf_results)):
         sf = sf_results[b]
         sep = separations[b]
+        # Get pair counts for this bootstrap (if available)
+        pc = pair_counts_results[b] if pair_counts_results is not None else None
         
         # Create mask for valid values
         valid = ~np.isnan(sf) & ~np.isnan(sep)
         sf_valid = sf[valid]
         sep_valid = sep[valid]
+        pc_valid = pc[valid] if pc is not None else None
         
         if len(sf_valid) == 0:
             continue
-            
-        # Volume element weights
-        weights = np.abs(sep_valid)
-        weights = np.maximum(weights, 1e-10)
         
         # Find bin indices
         bin_idx = bin_idx_func(sep_valid)
@@ -271,7 +283,8 @@ def _process_spacing_data_batch_1d(sf_results, separations, bin_edges, n_bins,
             if bin_id not in boot_accum:
                 boot_accum[bin_id] = {'weighted_sum': 0.0, 'total_weight': 0.0, 'count': 0}
             
-            weight = weights[idx]
+            # Use pair_counts as weights if available, otherwise use 1
+            weight = float(pc_valid[idx]) if pc_valid is not None else 1.0
             boot_accum[bin_id]['weighted_sum'] += sf_valid[idx] * weight
             boot_accum[bin_id]['total_weight'] += weight
             boot_accum[bin_id]['count'] += 1
@@ -292,8 +305,6 @@ def _process_spacing_data_batch_1d(sf_results, separations, bin_edges, n_bins,
                 # Add to global accumulator for overall mean
                 bin_accumulators[bin_id]['weighted_sum'] += data['weighted_sum']
                 bin_accumulators[bin_id]['total_weight'] += data['total_weight']
-                
-                # Record this bootstrap's mean as a sample
                 bin_accumulators[bin_id]['bootstrap_samples'].append({
                     'mean': boot_mean,
                     'weight': data['total_weight']
@@ -307,7 +318,7 @@ def _process_spacing_data_batch_1d(sf_results, separations, bin_edges, n_bins,
     return bin_accumulators, point_counts, bin_spacing_counts
 
 def _calculate_bootstrap_statistics_1d(bin_accumulators, n_bins,
-                                       ci_method='percentile', confidence_level=0.95):
+                                       confidence_level=0.95):
     """
     Calculate weighted means, bootstrap standard errors, and CIs for 1D bins.
     
@@ -317,8 +328,6 @@ def _calculate_bootstrap_statistics_1d(bin_accumulators, n_bins,
         Accumulator dictionary with bin indices as keys
     n_bins : int
         Number of bins
-    ci_method : str
-        Method for CI calculation ('standard' or 'percentile')
     confidence_level : float
         Confidence level for intervals
         
@@ -345,8 +354,7 @@ def _calculate_bootstrap_statistics_1d(bin_accumulators, n_bins,
                 sf_means[j], sf_stds[j], ci_lower[j], ci_upper[j] = \
                     _compute_weighted_bootstrap_stats(
                         acc['bootstrap_samples'], 
-                        confidence_level=confidence_level,
-                        ci_method=ci_method
+                        confidence_level=confidence_level
                     )
             else:
                 # Fall back to simple weighted mean if only one sample
@@ -533,12 +541,19 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
                                   step_nbootstrap, convergence_eps, spacing_values,
                                   bootsize_dict, num_bootstrappable, all_spacings,
                                   boot_indexes, n_jobs, backend, conditioning_var=None, conditioning_bins=None,
-                                  confidence_level=0.95, ci_method='percentile'):
+                                  confidence_level=0.95, seed=None):
     """
     Run adaptive bootstrap loop for 1D structure function binning.
     
     This is the main workhorse function that handles the iterative
     bootstrap refinement process.
+    
+    Parameters
+    ----------
+    confidence_level : float, optional
+        Confidence level for intervals. Default is 0.95.
+    seed : int, optional
+        Random seed for reproducibility.
     """
     n_bins = bins_config['n_bins']
     
@@ -553,10 +568,6 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
     bin_bootstraps = np.ones(n_bins, dtype=np.int_) * initial_nbootstrap
     bootstrap_steps = np.ones(n_bins, dtype=np.int_) * step_nbootstrap
     
-    # Precompute for CI calculations
-    alpha = 1 - confidence_level
-    z_score = stats.norm.ppf((1 + confidence_level) / 2)
-    
     # Accumulator for weighted statistics
     bin_accumulators = {}
     
@@ -570,14 +581,17 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
     init_samples_per_spacing = max(5, initial_nbootstrap // len(spacing_values))
     all_bins = list(range(n_bins))
     
-    for sp_value in spacing_values:
+    for sp_idx, sp_value in enumerate(spacing_values):
         if init_samples_per_spacing <= 0:
             continue
             
         print(f"  Processing spacing {sp_value} with {init_samples_per_spacing} bootstraps")
         
+        # Derive per-spacing seed for reproducibility
+        sp_seed = (seed + sp_idx) if seed is not None else None
+        
         # Run Monte Carlo simulation
-        sf_results, separations = monte_carlo_simulation_1d(
+        sf_results, separations, pair_counts_results = monte_carlo_simulation_1d(
             ds=ds,
             dim=dim_name,
             variables_names=variables_names,
@@ -592,14 +606,16 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
             n_jobs=n_jobs,
             backend=backend,
             conditioning_var=conditioning_var,
-            conditioning_bins=conditioning_bins
+            conditioning_bins=conditioning_bins,
+            seed=sp_seed
         )
         
         # Process the results
         _process_spacing_data_batch_1d(
             sf_results, separations, bins_config['bin_edges'], n_bins,
             bin_accumulators, point_counts, bin_spacing_counts,
-            sp_value, all_bins, add_to_counts=True
+            sp_value, all_bins, add_to_counts=True,
+            pair_counts_results=pair_counts_results
         )
         
         # Update effectiveness
@@ -610,12 +626,12 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
         )
         
         # Clean memory
-        del sf_results, separations
+        del sf_results, separations, pair_counts_results
         gc.collect()
     
     # Calculate statistics from accumulators
     sf_means, sf_stds, ci_lower, ci_upper = _calculate_bootstrap_statistics_1d(
-        bin_accumulators, n_bins, ci_method=ci_method, confidence_level=confidence_level
+        bin_accumulators, n_bins, confidence_level=confidence_level
     )
     
     # Calculate bin density
@@ -673,7 +689,7 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
                 print(f"  Batch processing spacing {sp_value} with {sp_bootstraps} bootstraps for {len(bin_list)} bins")
                 
                 # Run Monte Carlo simulation
-                sf_results, separations = monte_carlo_simulation_1d(
+                sf_results, separations, pair_counts_results = monte_carlo_simulation_1d(
                     ds=ds,
                     dim=dim_name,
                     variables_names=variables_names,
@@ -691,11 +707,12 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
                     conditioning_bins=conditioning_bins
                 )
                 
-                # Process the results (no count updates)
+                # Process the results (accumulate counts)
                 _process_spacing_data_batch_1d(
                     sf_results, separations, bins_config['bin_edges'], n_bins,
                     bin_accumulators, point_counts, bin_spacing_counts,
-                    sp_value, bin_list, add_to_counts=False
+                    sp_value, bin_list, add_to_counts=True,
+                    pair_counts_results=pair_counts_results
                 )
                 
                 # Update effectiveness
@@ -706,7 +723,7 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
                 )
                 
                 # Clean memory
-                del sf_results, separations
+                del sf_results, separations, pair_counts_results
                 gc.collect()
             
             # Update bootstrap counts and check convergence
@@ -722,7 +739,7 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
                                 _compute_weighted_bootstrap_stats(
                                     acc['bootstrap_samples'],
                                     confidence_level=confidence_level,
-                                    ci_method=ci_method
+                                    
                                 )
                         else:
                             sf_means[j] = acc['weighted_sum'] / acc['total_weight']
@@ -770,16 +787,17 @@ def _run_adaptive_bootstrap_loop_1d(ds, dim_name, variables_names, order, fun,
 def run_bootstrap_sf_2d(args):
     """Standalone bootstrap function for parallel processing in 2D."""
     ds, dims, variables_names, order, fun, nbx, nby, spacing, num_bootstrappable, bootstrappable_dims, boot_indexes, time_dims, conditioning_var, conditioning_bins = args
-    results, dx_vals, dy_vals = calculate_structure_function_2d(
+    results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
         ds=ds, dims=dims, variables_names=variables_names, order=order, fun=fun,
         nbx=nbx, nby=nby, spacing=spacing, num_bootstrappable=num_bootstrappable,
         bootstrappable_dims=bootstrappable_dims, boot_indexes=boot_indexes, time_dims=time_dims, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
     )
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
 
 def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, bootsize, 
                             num_bootstrappable, all_spacings, boot_indexes, bootstrappable_dims,
-                            fun='longitudinal', spacing=None, n_jobs=-1, backend='threading', time_dims=None, conditioning_var=None, conditioning_bins=None):
+                            fun='longitudinal', spacing=None, n_jobs=-1, backend='threading', 
+                            time_dims=None, conditioning_var=None, conditioning_bins=None, seed=None):
     """
     Run Monte Carlo simulation for structure function calculation with multiple bootstrap samples.
     
@@ -815,16 +833,21 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
         Backend for parallel processing
     time_dims : dict, optional
         Dictionary indicating which dimensions are time dimensions
+    seed : int, optional
+        Random seed for reproducibility
         
     Returns
     -------
     list, list, list
         Lists of structure function values, DX values, DY values
     """
+    # Create random generator (seeded if provided)
+    rng = np.random.default_rng(seed)
+    
     # If no bootstrappable dimensions, just calculate once with the full dataset
     if num_bootstrappable == 0:
         print("No bootstrappable dimensions. Calculating structure function once with full dataset.")
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             ds=ds,
             dims=dims,
             variables_names=variables_names,
@@ -835,7 +858,7 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
             conditioning_var=conditioning_var,
             conditioning_bins=conditioning_bins
         )
-        return [results], [dx_vals], [dy_vals]
+        return [results], [dx_vals], [dy_vals], [pair_counts]
     
     # Use default spacing of 1 if None provided
     if spacing is None:
@@ -870,7 +893,7 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
         if not valid_indices:
             print(f"Warning: No valid indices for dimension {bootstrap_dim} with spacing {sp_value}.")
             # Fall back to calculating once with full dataset
-            results, dx_vals, dy_vals = calculate_structure_function_2d(
+            results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
                 ds=ds,
                 dims=dims,
                 variables_names=variables_names,
@@ -881,7 +904,7 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
                 conditioning_var=conditioning_var,
                 conditioning_bins=conditioning_bins
             )
-            return [results], [dx_vals], [dy_vals]
+            return [results], [dx_vals], [dy_vals], [pair_counts]
     else:
         # Two bootstrappable dimensions - check both
         valid_y_indices = dims[0] in indexes and indexes[dims[0]].shape[1] > 0
@@ -890,7 +913,7 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
         if not valid_y_indices or not valid_x_indices:
             print("Warning: Not enough valid indices for bootstrapping with current spacing.")
             # Fall back to calculating once with full dataset
-            results, dx_vals, dy_vals = calculate_structure_function_2d(
+            results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
                 ds=ds,
                 dims=dims,
                 variables_names=variables_names,
@@ -901,7 +924,7 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
                 conditioning_var=conditioning_var,
                 conditioning_bins=conditioning_bins
             )
-            return [results], [dx_vals], [dy_vals]
+            return [results], [dx_vals], [dy_vals], [pair_counts]
     
     # Create all argument arrays for parallel processing
     all_args = []
@@ -911,8 +934,8 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
         # One bootstrappable dimension - only randomize that dimension
         bootstrap_dim = bootstrappable_dims[0]
         
-        # Generate random indices for the bootstrappable dimension
-        random_indices = np.random.choice(indexes[bootstrap_dim].shape[1], size=nbootstrap)
+        # Generate random indices for the bootstrappable dimension (seeded)
+        random_indices = rng.choice(indexes[bootstrap_dim].shape[1], size=nbootstrap)
         
         # Create arguments for all bootstrap iterations
         for j in range(nbootstrap):
@@ -932,9 +955,9 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
             
     else:
         # Two bootstrappable dimensions - randomize both
-        # Generate random indices for both dimensions
-        nby = np.random.choice(indexes[dims[0]].shape[1], size=nbootstrap) 
-        nbx = np.random.choice(indexes[dims[1]].shape[1], size=nbootstrap)
+        # Generate random indices for both dimensions (seeded)
+        nby = rng.choice(indexes[dims[0]].shape[1], size=nbootstrap) 
+        nbx = rng.choice(indexes[dims[1]].shape[1], size=nbootstrap)
         
         # Create arguments for all bootstrap iterations
         for j in range(nbootstrap):
@@ -966,12 +989,14 @@ def monte_carlo_simulation_2d(ds, dims, variables_names, order, nbootstrap, boot
     sf_results = [r[0] for r in results]
     dx_vals = [r[1] for r in results]
     dy_vals = [r[2] for r in results]
+    pair_counts_results = [r[3] for r in results]
     
-    return sf_results, dx_vals, dy_vals    
+    return sf_results, dx_vals, dy_vals, pair_counts_results    
 
 def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y, 
                                bin_accumulators, target_bins, point_counts=None,
-                               spacing_counts=None, sp_value=None, add_to_counts=True):
+                               spacing_counts=None, sp_value=None, add_to_counts=True,
+                               pair_counts_results=None):
     """
     Process a batch of bootstrap results for 2D Cartesian binning.
     
@@ -998,6 +1023,8 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
         Current spacing value
     add_to_counts : bool
         Whether to update counts
+    pair_counts_results : list, optional
+        List of pair counts arrays from structure function calculations.
         
     Returns
     -------
@@ -1016,6 +1043,8 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
         sf = sf_results[b]
         dx = dx_vals[b]
         dy = dy_vals[b]
+        # Get pair counts for this bootstrap (if available)
+        pc = pair_counts_results[b] if pair_counts_results is not None else None
         
         # Create mask for valid values
         valid = ~np.isnan(sf) & ~np.isnan(dx) & ~np.isnan(dy)
@@ -1025,10 +1054,7 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
         sf_valid = sf[valid]
         dx_valid = dx[valid]
         dy_valid = dy[valid]
-        
-        # Volume element weights
-        weights = np.abs(dx_valid * dy_valid)
-        weights = np.maximum(weights, 1e-10)
+        pc_valid = pc[valid] if pc is not None else None
         
         # Vectorized bin assignment
         x_indices = np.clip(np.digitize(dx_valid, bins_x) - 1, 0, n_bins_x - 1)
@@ -1048,14 +1074,18 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
                 
             j, i = divmod(bin_id, n_bins_x)
             bin_key = (j, i)
+            value = sf_valid[idx]
+            # Get actual pair count for this separation (or 1 if not available)
+            # This is the weight for combining SF means from different separations
+            pair_count = pc_valid[idx] if pc_valid is not None else 1
             
             if bin_key not in boot_accum:
-                boot_accum[bin_key] = {'weighted_sum': 0.0, 'total_weight': 0.0, 'count': 0}
+                boot_accum[bin_key] = {'weighted_sum': 0.0, 'total_weight': 0.0, 'pair_count': 0}
             
-            weight = weights[idx]
-            boot_accum[bin_key]['weighted_sum'] += sf_valid[idx] * weight
-            boot_accum[bin_key]['total_weight'] += weight
-            boot_accum[bin_key]['count'] += 1
+            # Weight by pair_count since value is a mean over pair_count origins
+            boot_accum[bin_key]['weighted_sum'] += value * pair_count
+            boot_accum[bin_key]['total_weight'] += pair_count
+            boot_accum[bin_key]['pair_count'] += pair_count
         
         # Record the bootstrap mean for each bin that received data
         for bin_key, data in boot_accum.items():
@@ -1073,8 +1103,6 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
                 # Add to global accumulator for overall mean
                 bin_accumulators[bin_key]['weighted_sum'] += data['weighted_sum']
                 bin_accumulators[bin_key]['total_weight'] += data['total_weight']
-                
-                # Record this bootstrap's mean as a sample
                 bin_accumulators[bin_key]['bootstrap_samples'].append({
                     'mean': boot_mean,
                     'weight': data['total_weight']
@@ -1086,9 +1114,9 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
                 if add_to_counts:
                     j, i = bin_key
                     if point_counts is not None:
-                        point_counts[j, i] += data['count']
+                        point_counts[j, i] += data['pair_count']  # Use actual pair count!
                     if spacing_counts is not None and sp_value is not None:
-                        spacing_counts[sp_value][j, i] += data['count']
+                        spacing_counts[sp_value][j, i] += data['pair_count']  # Use actual pair count!
         
     return updated_bins
 
@@ -1096,7 +1124,7 @@ def _process_bootstrap_batch_2d(sf_results, dx_vals, dy_vals, bins_x, bins_y,
 def _process_bootstrap_batch_polar_2d(sf_results, dx_vals, dy_vals, r_bins, theta_bins,
                                  bin_accumulators, angular_accumulators, target_r_bins,
                                  point_counts=None, spacing_counts=None, sp_value=None,
-                                 add_to_counts=True):
+                                 add_to_counts=True, pair_counts_results=None):
     """
     Process a batch of bootstrap results for polar binning.
     
@@ -1127,6 +1155,9 @@ def _process_bootstrap_batch_polar_2d(sf_results, dx_vals, dy_vals, r_bins, thet
         Current spacing value
     add_to_counts : bool
         Whether to update counts
+    pair_counts_results : list, optional
+        List of pair counts arrays from structure function calculations.
+        Each element corresponds to a bootstrap iteration.
         
     Returns
     -------
@@ -1142,23 +1173,25 @@ def _process_bootstrap_batch_polar_2d(sf_results, dx_vals, dy_vals, r_bins, thet
         sf = sf_results[b]
         dx = dx_vals[b]
         dy = dy_vals[b]
+        # Get pair counts for this bootstrap (if available)
+        pc = pair_counts_results[b] if pair_counts_results is not None else None
         
         # Create mask for valid values
         valid = ~np.isnan(sf) & ~np.isnan(dx) & ~np.isnan(dy)
         if not np.any(valid):
             continue
+        
+        # Get original indices of valid entries (needed for pair_counts lookup)
+        valid_indices = np.where(valid)[0]
             
         sf_valid = sf[valid]
         dx_valid = dx[valid]
         dy_valid = dy[valid]
+        pc_valid = pc[valid] if pc is not None else None
         
         # Convert to polar coordinates
         r_valid = np.sqrt(dx_valid**2 + dy_valid**2)
         theta_valid = np.arctan2(dy_valid, dx_valid)
-        
-        # Volume element weights (r for polar coordinates)
-        weights = r_valid
-        weights = np.maximum(weights, 1e-10)
         
         # Create bin indices
         r_indices = np.clip(np.digitize(r_valid, r_bins) - 1, 0, n_bins_r - 1)
@@ -1175,22 +1208,24 @@ def _process_bootstrap_batch_polar_2d(sf_results, dx_vals, dy_vals, r_bins, thet
                 continue
             
             theta_idx = theta_indices[idx]
-            weight = weights[idx]
             value = sf_valid[idx]
+            # Get actual pair count for this separation (or 1 if not available)
+            # This is the weight for combining SF means from different separations
+            pair_count = pc_valid[idx] if pc_valid is not None else 1
             
-            # Radial accumulator
+            # Radial accumulator - weight by pair_count since value is a mean over pair_count origins
             if r_idx not in boot_accum_r:
-                boot_accum_r[r_idx] = {'weighted_sum': 0.0, 'total_weight': 0.0, 'count': 0}
-            boot_accum_r[r_idx]['weighted_sum'] += value * weight
-            boot_accum_r[r_idx]['total_weight'] += weight
-            boot_accum_r[r_idx]['count'] += 1
+                boot_accum_r[r_idx] = {'weighted_sum': 0.0, 'total_weight': 0.0, 'pair_count': 0}
+            boot_accum_r[r_idx]['weighted_sum'] += value * pair_count  # Weight by pair count!
+            boot_accum_r[r_idx]['total_weight'] += pair_count          # Weight by pair count!
+            boot_accum_r[r_idx]['pair_count'] += pair_count
             
-            # Angular accumulator
+            # Angular accumulator - also weight by pair_count
             angular_key = (theta_idx, r_idx)
             if angular_key not in boot_accum_angular:
                 boot_accum_angular[angular_key] = {'weighted_sum': 0.0, 'total_weight': 0.0}
-            boot_accum_angular[angular_key]['weighted_sum'] += value * weight
-            boot_accum_angular[angular_key]['total_weight'] += weight
+            boot_accum_angular[angular_key]['weighted_sum'] += value * pair_count
+            boot_accum_angular[angular_key]['total_weight'] += pair_count
         
         # Record the bootstrap mean for each radial bin that received data
         for r_idx, data in boot_accum_r.items():
@@ -1208,8 +1243,6 @@ def _process_bootstrap_batch_polar_2d(sf_results, dx_vals, dy_vals, r_bins, thet
                 # Add to global accumulator for overall mean
                 bin_accumulators[r_idx]['weighted_sum'] += data['weighted_sum']
                 bin_accumulators[r_idx]['total_weight'] += data['total_weight']
-                
-                # Record this bootstrap's mean as a sample
                 bin_accumulators[r_idx]['bootstrap_samples'].append({
                     'mean': boot_mean,
                     'weight': data['total_weight']
@@ -1220,9 +1253,9 @@ def _process_bootstrap_batch_polar_2d(sf_results, dx_vals, dy_vals, r_bins, thet
                 # Update counts (only when add_to_counts is True)
                 if add_to_counts:
                     if point_counts is not None:
-                        point_counts[r_idx] += data['count']
+                        point_counts[r_idx] += data['pair_count']  # Use actual pair count!
                     if spacing_counts is not None and sp_value is not None:
-                        spacing_counts[sp_value][r_idx] += data['count']
+                        spacing_counts[sp_value][r_idx] += data['pair_count']  # Use actual pair count!
         
         # Update angular accumulators (these don't need bootstrap samples)
         for angular_key, data in boot_accum_angular.items():
@@ -1474,7 +1507,7 @@ def _calculate_bootstrap_statistics_2d(bin_accumulators, bin_shape):
 
 def _calculate_bootstrap_statistics_polar_2d(bin_accumulators, angular_accumulators, 
                                              n_bins_r, n_bins_theta,
-                                             ci_method='percentile', confidence_level=0.95):
+                                             confidence_level=0.95):
     """
     Calculate statistics for polar binning with CI support.
     
@@ -1507,8 +1540,7 @@ def _calculate_bootstrap_statistics_polar_2d(bin_accumulators, angular_accumulat
                 sf_means[r_idx], sf_stds[r_idx], ci_lower[r_idx], ci_upper[r_idx] = \
                     _compute_weighted_bootstrap_stats(
                         acc['bootstrap_samples'],
-                        confidence_level=confidence_level,
-                        ci_method=ci_method
+                        confidence_level=confidence_level
                     )
             else:
                 sf_means[r_idx] = acc['weighted_sum'] / acc['total_weight']
@@ -1525,7 +1557,7 @@ def _calculate_bootstrap_statistics_polar_2d(bin_accumulators, angular_accumulat
     
 def _calculate_bootstrap_statistics_flux_2d(k_accumulators, angular_accumulators, r_accumulators,
                                              n_k, n_theta, n_r,
-                                             ci_method='percentile', confidence_level=0.95):
+                                             confidence_level=0.95):
     """
     Calculate statistics from energy flux accumulators with CI support.
     
@@ -1543,8 +1575,6 @@ def _calculate_bootstrap_statistics_flux_2d(k_accumulators, angular_accumulators
         Number of angular bins.
     n_r : int
         Number of radial bins.
-    ci_method : str
-        Method for CI calculation ('standard' or 'percentile').
     confidence_level : float
         Confidence level for intervals.
         
@@ -1578,8 +1608,7 @@ def _calculate_bootstrap_statistics_flux_2d(k_accumulators, angular_accumulators
                 energy_flux[k_idx], flux_stds[k_idx], ci_lower[k_idx], ci_upper[k_idx] = \
                     _compute_weighted_bootstrap_stats(
                         acc['bootstrap_samples'],
-                        confidence_level=confidence_level,
-                        ci_method=ci_method
+                        confidence_level=confidence_level
                     )
             else:
                 energy_flux[k_idx] = acc['weighted_sum'] / acc['total_weight']
@@ -1871,11 +1900,18 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
                                bootsize_dict, num_bootstrappable, all_spacings,
                                boot_indexes, bootstrappable_dims, n_jobs, backend,
                                time_dims, conditioning_var, conditioning_bins, is_2d=True,
-                               confidence_level=0.95, ci_method='percentile'):
+                               confidence_level=0.95, seed=None):
     """
     Generic adaptive bootstrap loop used by both 2D and isotropic functions.
     
     This function now handles both 2D and polar cases internally.
+    
+    Parameters
+    ----------
+    confidence_level : float, optional
+        Confidence level for intervals. Default is 0.95.
+    seed : int, optional
+        Random seed for reproducibility.
     """
     # Determine result shape and initialize arrays
     if is_2d:
@@ -1910,10 +1946,6 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
         sfr = np.full((bins_config['n_bins_theta'], bins_config['n_bins_r']), np.nan)
         sfr_counts = np.zeros((bins_config['n_bins_theta'], bins_config['n_bins_r']), dtype=np.int_)
     
-    # Precompute for CI calculations
-    alpha = 1 - confidence_level
-    z_score = stats.norm.ppf((1 + confidence_level) / 2)
-    
     # Initialize accumulators
     bin_accumulators = {}
     angular_accumulators = {} if not is_2d else None
@@ -1937,17 +1969,22 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
     print("\nINITIAL BOOTSTRAP PHASE")
     init_samples_per_spacing = max(5, initial_nbootstrap // len(spacing_values))
     
-    for sp_value in spacing_values:
+    for sp_idx, sp_value in enumerate(spacing_values):
         print(f"Processing spacing {sp_value} with {init_samples_per_spacing} bootstraps")
         
+        # Derive per-spacing seed for reproducibility
+        sp_seed = (seed + sp_idx) if seed is not None else None
+        
         # Run Monte Carlo simulation
-        sf_results, dx_vals, dy_vals = monte_carlo_simulation_2d(
+        sf_results, dx_vals, dy_vals, pair_counts_results = monte_carlo_simulation_2d(
             ds=valid_ds, dims=dims, variables_names=variables_names,
             order=order, nbootstrap=init_samples_per_spacing,
             bootsize=bootsize_dict, num_bootstrappable=num_bootstrappable,
             all_spacings=all_spacings, boot_indexes=boot_indexes,
             bootstrappable_dims=bootstrappable_dims, fun=fun,
-            spacing=sp_value, n_jobs=n_jobs, backend=backend, time_dims=time_dims, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
+            spacing=sp_value, n_jobs=n_jobs, backend=backend, time_dims=time_dims, 
+            conditioning_var=conditioning_var, conditioning_bins=conditioning_bins,
+            seed=sp_seed
         )
         
         # Process batch based on type
@@ -1956,14 +1993,16 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
                 sf_results, dx_vals, dy_vals, 
                 bins_config['bins_x'], bins_config['bins_y'],
                 bin_accumulators, set(all_bins), point_counts,
-                bin_spacing_counts, sp_value, True
+                bin_spacing_counts, sp_value, True,
+                pair_counts_results=pair_counts_results
             )
         else:
             _process_bootstrap_batch_polar_2d(
                 sf_results, dx_vals, dy_vals, 
                 bins_config['r_bins'], bins_config['theta_bins'],
                 bin_accumulators, angular_accumulators, set(all_bins),
-                point_counts, bin_spacing_counts, sp_value, True
+                point_counts, bin_spacing_counts, sp_value, True,
+                pair_counts_results=pair_counts_results
             )
         
         # Update effectiveness
@@ -1976,6 +2015,7 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
         del sf_results, dx_vals, dy_vals
         gc.collect()
     
+    
     # Calculate initial statistics based on type
     if is_2d:
         sf_means[:], sf_stds[:] = _calculate_bootstrap_statistics_2d(
@@ -1985,7 +2025,7 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
         sf_means[:], sf_stds[:], ci_lower[:], ci_upper[:], sfr[:], sfr_counts[:] = _calculate_bootstrap_statistics_polar_2d(
             bin_accumulators, angular_accumulators,
             bins_config['n_bins_r'], bins_config['n_bins_theta'],
-            ci_method=ci_method, confidence_level=confidence_level
+            confidence_level=confidence_level, 
         )
     
     # Calculate bin density
@@ -2042,7 +2082,7 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
                     continue
                     
                 # Run Monte Carlo
-                sf_results, dx_vals, dy_vals = monte_carlo_simulation_2d(
+                sf_results, dx_vals, dy_vals, pair_counts_results = monte_carlo_simulation_2d(
                     ds=valid_ds, dims=dims, variables_names=variables_names,
                     order=order, nbootstrap=sp_bootstraps,
                     bootsize=bootsize_dict, num_bootstrappable=num_bootstrappable,
@@ -2051,23 +2091,25 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
                     spacing=sp_value, n_jobs=n_jobs, backend=backend, time_dims=time_dims, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
                 )
                 
-                # Process batch based on type (no count updates)
+                # Process batch based on type (accumulate counts)
                 if is_2d:
                     _process_bootstrap_batch_2d(
                         sf_results, dx_vals, dy_vals, 
                         bins_config['bins_x'], bins_config['bins_y'],
-                        bin_accumulators, set(bin_list), None,
-                        bin_spacing_counts, sp_value, False
+                        bin_accumulators, set(bin_list), point_counts,
+                        bin_spacing_counts, sp_value, True,
+                        pair_counts_results=pair_counts_results
                     )
                 else:
                     _process_bootstrap_batch_polar_2d(
                         sf_results, dx_vals, dy_vals, 
                         bins_config['r_bins'], bins_config['theta_bins'],
                         bin_accumulators, angular_accumulators, set(bin_list),
-                        None, bin_spacing_counts, sp_value, False
+                        point_counts, bin_spacing_counts, sp_value, True,
+                        pair_counts_results=pair_counts_results
                     )
                 
-                del sf_results, dx_vals, dy_vals
+                del sf_results, dx_vals, dy_vals, pair_counts_results
                 gc.collect()
             
             # Update statistics and check convergence for this group
@@ -2081,19 +2123,11 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
                         acc = bin_accumulators[(j, i)]
                         if acc['total_weight'] > 0:
                             if len(acc['bootstrap_samples']) > 1:
-                                boot_means = np.array([s['mean'] for s in acc['bootstrap_samples']])
-                                boot_weights = np.array([s['weight'] for s in acc['bootstrap_samples']])
-                                
-                                # Weighted mean
-                                sf_means[j, i] = np.average(boot_means, weights=boot_weights)
-                                
-                                # Weighted std
-                                weighted_var = np.average((boot_means - sf_means[j, i])**2, weights=boot_weights)
-                                sf_stds[j, i] = np.sqrt(weighted_var)
-                                
-                                # Weighted CI (standard method for 2D heatmap)
-                                ci_lower[j, i] = sf_means[j, i] - z_score * sf_stds[j, i]
-                                ci_upper[j, i] = sf_means[j, i] + z_score * sf_stds[j, i]
+                                sf_means[j, i], sf_stds[j, i], ci_lower[j, i], ci_upper[j, i] = \
+                                    _compute_weighted_bootstrap_stats(
+                                        acc['bootstrap_samples'],
+                                        confidence_level=confidence_level
+                                    )
                             else:
                                 sf_means[j, i] = acc['weighted_sum'] / acc['total_weight']
                         
@@ -2114,8 +2148,7 @@ def _run_adaptive_bootstrap_loop_2d(valid_ds, dims, variables_names, order, fun,
                                 sf_means[r_idx], sf_stds[r_idx], ci_lower[r_idx], ci_upper[r_idx] = \
                                     _compute_weighted_bootstrap_stats(
                                         acc['bootstrap_samples'],
-                                        confidence_level=confidence_level,
-                                        ci_method=ci_method
+                                        confidence_level=confidence_level
                                     )
                             else:
                                 sf_means[r_idx] = acc['weighted_sum'] / acc['total_weight']
@@ -2172,13 +2205,20 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
                                          bootsize_dict, num_bootstrappable, all_spacings,
                                          boot_indexes, bootstrappable_dims, n_jobs, backend,
                                          time_dims, conditioning_var, conditioning_bins,
-                                         confidence_level=0.95, ci_method='percentile'):
+                                         confidence_level=0.95, seed=None):
     """
     Adaptive bootstrap loop for energy flux computation.
     
     Computes Π(K) = -K/2 ∫ SF̃(r) J₁(Kr) dr using:
     1. Radial binning to get angle-averaged SF̃(r)
     2. J₁ Bessel transform to get energy flux Π(K)
+    
+    Parameters
+    ----------
+    confidence_level : float, optional
+        Confidence level for intervals. Default is 0.95.
+    seed : int, optional
+        Random seed for reproducibility.
     """
     n_k = config['n_k']
     n_theta = config['n_bins_theta']
@@ -2203,10 +2243,6 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
     # Angle-averaged SF
     sf_r = np.full(n_r, np.nan)
     
-    # Precompute for CI calculations
-    alpha = 1 - confidence_level
-    z_score = stats.norm.ppf((1 + confidence_level) / 2)
-    
     # Accumulators for bootstrap statistics
     k_accumulators = {}  # For energy flux at each wavenumber
     angular_accumulators = {}  # For (theta, k) pairs
@@ -2223,18 +2259,22 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
     print("\nINITIAL BOOTSTRAP PHASE (Energy Flux)")
     init_samples_per_spacing = max(5, initial_nbootstrap // len(spacing_values))
     
-    for sp_value in spacing_values:
+    for sp_idx, sp_value in enumerate(spacing_values):
         print(f"Processing spacing {sp_value} with {init_samples_per_spacing} bootstraps")
         
+        # Derive per-spacing seed for reproducibility
+        sp_seed = (seed + sp_idx) if seed is not None else None
+        
         # Run Monte Carlo simulation
-        sf_results, dx_vals, dy_vals = monte_carlo_simulation_2d(
+        sf_results, dx_vals, dy_vals, pair_counts_results = monte_carlo_simulation_2d(
             ds=valid_ds, dims=dims, variables_names=variables_names,
             order=order, nbootstrap=init_samples_per_spacing,
             bootsize=bootsize_dict, num_bootstrappable=num_bootstrappable,
             all_spacings=all_spacings, boot_indexes=boot_indexes,
             bootstrappable_dims=bootstrappable_dims, fun=fun,
             spacing=sp_value, n_jobs=n_jobs, backend=backend, 
-            time_dims=time_dims, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
+            time_dims=time_dims, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins,
+            seed=sp_seed
         )
         
         # Process batch with energy flux weighting
@@ -2251,14 +2291,15 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
             init_samples_per_spacing
         )
         
-        del sf_results, dx_vals, dy_vals
+        del sf_results, dx_vals, dy_vals, pair_counts_results
         gc.collect()
+    
     
     # Calculate initial statistics
     (energy_flux[:], flux_stds[:], ci_lower[:], ci_upper[:], 
      flux_theta_k[:], flux_theta_k_counts[:], sf_r[:]) = _calculate_bootstrap_statistics_flux_2d(
         k_accumulators, angular_accumulators, r_accumulators, n_k, n_theta, n_r,
-        ci_method=ci_method, confidence_level=confidence_level
+        confidence_level=confidence_level, 
     )
     
     # Calculate density (effective samples at each wavenumber)
@@ -2311,7 +2352,7 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
                     continue
                 
                 # Run Monte Carlo
-                sf_results, dx_vals, dy_vals = monte_carlo_simulation_2d(
+                sf_results, dx_vals, dy_vals, pair_counts_results = monte_carlo_simulation_2d(
                     ds=valid_ds, dims=dims, variables_names=variables_names,
                     order=order, nbootstrap=sp_bootstraps,
                     bootsize=bootsize_dict, num_bootstrappable=num_bootstrappable,
@@ -2321,14 +2362,14 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
                     time_dims=time_dims, conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
                 )
                 
-                # Process batch (no count updates)
+                # Process batch (accumulate counts)
                 _process_bootstrap_batch_flux_2d(
                     sf_results, dx_vals, dy_vals,
                     config, k_accumulators, angular_accumulators, r_accumulators,
-                    set(k_list), None, bin_spacing_counts, sp_value, False
+                    set(k_list), point_counts, bin_spacing_counts, sp_value, True
                 )
                 
-                del sf_results, dx_vals, dy_vals
+                del sf_results, dx_vals, dy_vals, pair_counts_results
                 gc.collect()
             
             # Update statistics and check convergence for this group
@@ -2343,7 +2384,7 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
                                 _compute_weighted_bootstrap_stats(
                                     acc['bootstrap_samples'],
                                     confidence_level=confidence_level,
-                                    ci_method=ci_method
+                                    
                                 )
                         else:
                             energy_flux[k_idx] = acc['weighted_sum'] / acc['total_weight']
@@ -2399,18 +2440,18 @@ def _run_adaptive_bootstrap_loop_flux_2d(valid_ds, dims, variables_names, order,
 def run_bootstrap_sf_3d(args):
     """Standalone bootstrap function for parallel processing in 3D."""
     ds, dims, variables_names, order, fun, nbz, nby, nbx, spacing, num_bootstrappable, bootstrappable_dims, boot_indexes, time_dims, conditioning_var, conditioning_bins = args
-    results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+    results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
         ds=ds, dims=dims, variables_names=variables_names, order=order, fun=fun,
         nbz=nbz, nby=nby, nbx=nbx, spacing=spacing, num_bootstrappable=num_bootstrappable, 
         bootstrappable_dims=bootstrappable_dims, boot_indexes=boot_indexes, time_dims=time_dims,
         conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
     )
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, bootsize, 
                             num_bootstrappable, all_spacings, boot_indexes, bootstrappable_dims,
                             fun='longitudinal', spacing=None, n_jobs=-1, backend='threading',
-                            time_dims=None, conditioning_var=None, conditioning_bins=None):
+                            time_dims=None, conditioning_var=None, conditioning_bins=None, seed=None):
     """
     Run Monte Carlo simulation for structure function calculation with multiple bootstrap samples.
     
@@ -2446,12 +2487,17 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
         Backend for parallel processing
     time_dims : dict, optional
         Dictionary indicating which dimensions are time dimensions
+    seed : int, optional
+        Random seed for reproducibility
         
     Returns
     -------
-    list, list, list, list
-        Lists of structure function values, DX values, DY values, DZ values
+    list, list, list, list, list
+        Lists of structure function values, DX values, DY values, DZ values, pair_counts
     """
+    # Create random generator (seeded if provided)
+    rng = np.random.default_rng(seed)
+    
     # If time_dims wasn't provided, assume no time dimensions
     if time_dims is None:
         time_dims = {dim: False for dim in dims}
@@ -2459,7 +2505,7 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
     # If no bootstrappable dimensions, just calculate once with the full dataset
     if num_bootstrappable == 0:
         print("No bootstrappable dimensions. Calculating structure function once with full dataset.")
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             ds=ds,
             dims=dims,
             variables_names=variables_names,
@@ -2468,7 +2514,7 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
             num_bootstrappable=num_bootstrappable,
             time_dims=time_dims  # Pass time_dims to calculate_structure_function_3d
         )
-        return [results], [dx_vals], [dy_vals], [dz_vals]
+        return [results], [dx_vals], [dy_vals], [dz_vals], [pair_counts]
     
     # Use default spacing of 1 if None provided
     if spacing is None:
@@ -2485,8 +2531,6 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
     else:
         sp_value = spacing
     
-    # Set the seed for reproducibility
-    np.random.seed(10000000)
     
     # Get boot indexes for the specified spacing
     if sp_value in boot_indexes:
@@ -2508,7 +2552,7 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
         if not indexes or bootstrap_dim not in indexes or indexes[bootstrap_dim].shape[1] == 0:
             print(f"Warning: No valid indices for dimension {bootstrap_dim} with spacing {sp_value}.")
             # Fall back to calculating once with full dataset
-            results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+            results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
                 ds=ds,
                 dims=dims,
                 variables_names=variables_names,
@@ -2517,10 +2561,10 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
                 num_bootstrappable=num_bootstrappable,
                 time_dims=time_dims  # Pass time_dims
             )
-            return [results], [dx_vals], [dy_vals], [dz_vals]
+            return [results], [dx_vals], [dy_vals], [dz_vals], [pair_counts]
         
-        # Generate random indices for the bootstrappable dimension
-        random_indices = np.random.choice(indexes[bootstrap_dim].shape[1], size=nbootstrap)
+        # Generate random indices for the bootstrappable dimension (seeded)
+        random_indices = rng.choice(indexes[bootstrap_dim].shape[1], size=nbootstrap)
         
         # Create arguments for each bootstrap iteration
         for j in range(nbootstrap):
@@ -2549,7 +2593,7 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
         
         if not valid_indexes:
             # Fall back to calculating once with full dataset
-            results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+            results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
                 ds=ds,
                 dims=dims,
                 variables_names=variables_names,
@@ -2558,12 +2602,12 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
                 num_bootstrappable=num_bootstrappable,
                 time_dims=time_dims  # Pass time_dims
             )
-            return [results], [dx_vals], [dy_vals], [dz_vals]
+            return [results], [dx_vals], [dy_vals], [dz_vals], [pair_counts]
         
-        # Generate random indices for bootstrappable dimensions
+        # Generate random indices for bootstrappable dimensions (seeded)
         nb_indices = {}
         for dim in bootstrappable_dims:
-            nb_indices[dim] = np.random.choice(indexes[dim].shape[1], size=nbootstrap)
+            nb_indices[dim] = rng.choice(indexes[dim].shape[1], size=nbootstrap)
         
         # Create arguments for each bootstrap iteration
         for j in range(nbootstrap):
@@ -2591,7 +2635,7 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
         
         if not valid_indexes:
             # Fall back to calculating once with full dataset
-            results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+            results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
                 ds=ds,
                 dims=dims,
                 variables_names=variables_names,
@@ -2600,12 +2644,12 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
                 num_bootstrappable=num_bootstrappable,
                 time_dims=time_dims  # Pass time_dims
             )
-            return [results], [dx_vals], [dy_vals], [dz_vals]
+            return [results], [dx_vals], [dy_vals], [dz_vals], [pair_counts]
         
-        # Generate random indices for all three dimensions
-        nbz = np.random.choice(indexes[dims[0]].shape[1], size=nbootstrap) 
-        nby = np.random.choice(indexes[dims[1]].shape[1], size=nbootstrap)
-        nbx = np.random.choice(indexes[dims[2]].shape[1], size=nbootstrap)
+        # Generate random indices for all three dimensions (seeded)
+        nbz = rng.choice(indexes[dims[0]].shape[1], size=nbootstrap) 
+        nby = rng.choice(indexes[dims[1]].shape[1], size=nbootstrap)
+        nbx = rng.choice(indexes[dims[2]].shape[1], size=nbootstrap)
         
         # Create arguments for each bootstrap iteration
         for j in range(nbootstrap):
@@ -2639,18 +2683,21 @@ def monte_carlo_simulation_3d(ds, dims, variables_names, order, nbootstrap, boot
     dx_vals = [r[1] for r in results]
     dy_vals = [r[2] for r in results]
     dz_vals = [r[3] for r in results]
+    pair_counts_results = [r[4] for r in results]
     
     
-    return sf_results, dx_vals, dy_vals, dz_vals
+    return sf_results, dx_vals, dy_vals, dz_vals, pair_counts_results
 
 def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, bins_y, bins_z,
                                bin_accumulators, target_bins, point_counts=None,
-                               spacing_counts=None, sp_value=None, add_to_counts=True):
+                               spacing_counts=None, sp_value=None, add_to_counts=True,
+                               pair_counts_results=None):
     """
     Process a batch of bootstrap results for 3D Cartesian binning.
     
     FIXED: Now records each bootstrap mean independently rather than incrementally.
     Each bootstrap iteration produces one mean estimate per bin.
+    Uses pair_counts for proper weighting when combining separations into bins.
     
     Parameters
     ----------
@@ -2672,6 +2719,8 @@ def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, b
         Current spacing value
     add_to_counts : bool
         Whether to update counts
+    pair_counts_results : list, optional
+        List of pair counts arrays from structure function calculations.
         
     Returns
     -------
@@ -2692,6 +2741,8 @@ def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, b
         dx = dx_vals[b]
         dy = dy_vals[b]
         dz = dz_vals[b]
+        # Get pair counts for this bootstrap (if available)
+        pc = pair_counts_results[b] if pair_counts_results is not None else None
         
         # Create mask for valid values
         valid = ~np.isnan(sf) & ~np.isnan(dx) & ~np.isnan(dy) & ~np.isnan(dz)
@@ -2702,10 +2753,7 @@ def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, b
         dx_valid = dx[valid]
         dy_valid = dy[valid]
         dz_valid = dz[valid]
-        
-        # Volume element weights
-        weights = np.abs(dx_valid * dy_valid * dz_valid)
-        weights = np.maximum(weights, 1e-10)
+        pc_valid = pc[valid] if pc is not None else None
         
         # Vectorized bin assignment
         x_indices = np.clip(np.digitize(dx_valid, bins_x) - 1, 0, n_bins_x - 1)
@@ -2732,7 +2780,8 @@ def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, b
             if bin_key not in boot_accum:
                 boot_accum[bin_key] = {'weighted_sum': 0.0, 'total_weight': 0.0, 'count': 0}
             
-            weight = weights[idx]
+            # Use pair_counts as weights if available, otherwise use 1
+            weight = float(pc_valid[idx]) if pc_valid is not None else 1.0
             boot_accum[bin_key]['weighted_sum'] += sf_valid[idx] * weight
             boot_accum[bin_key]['total_weight'] += weight
             boot_accum[bin_key]['count'] += 1
@@ -2753,8 +2802,6 @@ def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, b
                 # Add to global accumulator for overall mean
                 bin_accumulators[bin_key]['weighted_sum'] += data['weighted_sum']
                 bin_accumulators[bin_key]['total_weight'] += data['total_weight']
-                
-                # Record this bootstrap's mean as a sample
                 bin_accumulators[bin_key]['bootstrap_samples'].append({
                     'mean': boot_mean,
                     'weight': data['total_weight']
@@ -2776,12 +2823,13 @@ def _process_bootstrap_batch_3d(sf_results, dx_vals, dy_vals, dz_vals, bins_x, b
 def _process_bootstrap_batch_spherical_3d(sf_results, dx_vals, dy_vals, dz_vals, r_bins, theta_bins, phi_bins,
                                      bin_accumulators, angular_accumulators, target_r_bins,
                                      point_counts=None, spacing_counts=None, sp_value=None,
-                                     add_to_counts=True):
+                                     add_to_counts=True, pair_counts_results=None):
     """
     Process a batch of bootstrap results for spherical binning.
     
     FIXED: Now records each bootstrap mean independently rather than incrementally.
     Each bootstrap iteration produces one mean estimate per radial bin.
+    Uses pair_counts for proper weighting when combining separations into bins.
     
     Parameters
     ----------
@@ -2809,6 +2857,8 @@ def _process_bootstrap_batch_spherical_3d(sf_results, dx_vals, dy_vals, dz_vals,
         Current spacing value
     add_to_counts : bool
         Whether to update counts
+    pair_counts_results : list, optional
+        List of pair counts arrays from structure function calculations.
         
     Returns
     -------
@@ -2826,6 +2876,8 @@ def _process_bootstrap_batch_spherical_3d(sf_results, dx_vals, dy_vals, dz_vals,
         dx = dx_vals[b]
         dy = dy_vals[b]
         dz = dz_vals[b]
+        # Get pair counts for this bootstrap (if available)
+        pc = pair_counts_results[b] if pair_counts_results is not None else None
         
         # Create mask for valid values
         valid = ~np.isnan(sf) & ~np.isnan(dx) & ~np.isnan(dy) & ~np.isnan(dz)
@@ -2836,15 +2888,12 @@ def _process_bootstrap_batch_spherical_3d(sf_results, dx_vals, dy_vals, dz_vals,
         dx_valid = dx[valid]
         dy_valid = dy[valid]
         dz_valid = dz[valid]
+        pc_valid = pc[valid] if pc is not None else None
         
         # Convert to spherical coordinates
         r_valid = np.sqrt(dx_valid**2 + dy_valid**2 + dz_valid**2)
         theta_valid = np.arctan2(dy_valid, dx_valid)  # Azimuthal angle (-π to π)
         phi_valid = np.arccos(np.clip(dz_valid / np.maximum(r_valid, 1e-10), -1.0, 1.0))  # Polar angle (0 to π)
-        
-        # Volume element weights (r² for spherical coordinates)
-        weights = r_valid**2
-        weights = np.maximum(weights, 1e-10)
         
         # Create bin indices
         r_indices = np.clip(np.digitize(r_valid, r_bins) - 1, 0, n_bins_r - 1)
@@ -2863,7 +2912,8 @@ def _process_bootstrap_batch_spherical_3d(sf_results, dx_vals, dy_vals, dz_vals,
             
             theta_idx = theta_indices[idx]
             phi_idx = phi_indices[idx]
-            weight = weights[idx]
+            # Use pair_counts as weights if available, otherwise use 1
+            weight = float(pc_valid[idx]) if pc_valid is not None else 1.0
             value = sf_valid[idx]
             
             # Radial accumulator
@@ -2896,8 +2946,6 @@ def _process_bootstrap_batch_spherical_3d(sf_results, dx_vals, dy_vals, dz_vals,
                 # Add to global accumulator for overall mean
                 bin_accumulators[r_idx]['weighted_sum'] += data['weighted_sum']
                 bin_accumulators[r_idx]['total_weight'] += data['total_weight']
-                
-                # Record this bootstrap's mean as a sample
                 bin_accumulators[r_idx]['bootstrap_samples'].append({
                     'mean': boot_mean,
                     'weight': data['total_weight']
@@ -2971,7 +3019,7 @@ def _calculate_bootstrap_statistics_3d(bin_accumulators, bin_shape):
 
 def _calculate_bootstrap_statistics_spherical_3d(bin_accumulators, angular_accumulators, 
                                                  n_bins_r, n_bins_theta, n_bins_phi,
-                                                 ci_method='percentile', confidence_level=0.95):
+                                                 confidence_level=0.95):
     """
     Calculate statistics for spherical binning with CI support.
     
@@ -3004,8 +3052,7 @@ def _calculate_bootstrap_statistics_spherical_3d(bin_accumulators, angular_accum
                 sf_means[r_idx], sf_stds[r_idx], ci_lower[r_idx], ci_upper[r_idx] = \
                     _compute_weighted_bootstrap_stats(
                         acc['bootstrap_samples'],
-                        confidence_level=confidence_level,
-                        ci_method=ci_method
+                        confidence_level=confidence_level
                     )
             else:
                 sf_means[r_idx] = acc['weighted_sum'] / acc['total_weight']
@@ -3218,11 +3265,18 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
                                   bootsize_dict, num_bootstrappable, all_spacings,
                                   boot_indexes, bootstrappable_dims, n_jobs, backend,
                                   time_dims, is_3d=True, conditioning_var=None, conditioning_bins=None,
-                                  confidence_level=0.95, ci_method='percentile'):
+                                  confidence_level=0.95, seed=None):
     """
     Generic adaptive bootstrap loop used by both 3D and spherical functions.
     
     This function handles both 3D Cartesian and spherical cases internally.
+    
+    Parameters
+    ----------
+    confidence_level : float, optional
+        Confidence level for intervals. Default is 0.95.
+    seed : int, optional
+        Random seed for reproducibility.
     """
     # Determine result shape and initialize arrays
     if is_3d:
@@ -3257,10 +3311,6 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
         sfr = np.full((bins_config['n_bins_phi'], bins_config['n_bins_theta'], bins_config['n_bins_r']), np.nan)
         sfr_counts = np.zeros((bins_config['n_bins_phi'], bins_config['n_bins_theta'], bins_config['n_bins_r']), dtype=np.int_)
     
-    # Precompute for CI calculations
-    alpha = 1 - confidence_level
-    z_score = stats.norm.ppf((1 + confidence_level) / 2)
-    
     # Initialize accumulators
     bin_accumulators = {}
     angular_accumulators = {} if not is_3d else None
@@ -3286,18 +3336,22 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
     print("\nINITIAL BOOTSTRAP PHASE")
     init_samples_per_spacing = max(5, initial_nbootstrap // len(spacing_values))
     
-    for sp_value in spacing_values:
+    for sp_idx, sp_value in enumerate(spacing_values):
         print(f"Processing spacing {sp_value} with {init_samples_per_spacing} bootstraps")
         
+        # Derive per-spacing seed for reproducibility
+        sp_seed = (seed + sp_idx) if seed is not None else None
+        
         # Run Monte Carlo simulation
-        sf_results, dx_vals, dy_vals, dz_vals = monte_carlo_simulation_3d(
+        sf_results, dx_vals, dy_vals, dz_vals, pair_counts_results = monte_carlo_simulation_3d(
             ds=valid_ds, dims=dims, variables_names=variables_names,
             order=order, nbootstrap=init_samples_per_spacing,
             bootsize=bootsize_dict, num_bootstrappable=num_bootstrappable,
             all_spacings=all_spacings, boot_indexes=boot_indexes,
             bootstrappable_dims=bootstrappable_dims, fun=fun,
             spacing=sp_value, n_jobs=n_jobs, backend=backend, time_dims=time_dims,
-            conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
+            conditioning_var=conditioning_var, conditioning_bins=conditioning_bins,
+            seed=sp_seed
         )
         
         # Process batch based on type
@@ -3306,14 +3360,16 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
                 sf_results, dx_vals, dy_vals, dz_vals,
                 bins_config['bins_x'], bins_config['bins_y'], bins_config['bins_z'],
                 bin_accumulators, set(all_bins), point_counts,
-                bin_spacing_counts, sp_value, True
+                bin_spacing_counts, sp_value, True,
+                pair_counts_results=pair_counts_results
             )
         else:
             _process_bootstrap_batch_spherical_3d(
                 sf_results, dx_vals, dy_vals, dz_vals,
                 bins_config['r_bins'], bins_config['theta_bins'], bins_config['phi_bins'],
                 bin_accumulators, angular_accumulators, set(all_bins),
-                point_counts, bin_spacing_counts, sp_value, True
+                point_counts, bin_spacing_counts, sp_value, True,
+                pair_counts_results=pair_counts_results
             )
         
         # Update effectiveness
@@ -3323,8 +3379,9 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
             init_samples_per_spacing
         )
         
-        del sf_results, dx_vals, dy_vals, dz_vals
+        del sf_results, dx_vals, dy_vals, dz_vals, pair_counts_results
         gc.collect()
+    
     
     # Calculate initial statistics based on type
     if is_3d:
@@ -3335,7 +3392,7 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
         sf_means[:], sf_stds[:], ci_lower[:], ci_upper[:], sfr[:], sfr_counts[:] = _calculate_bootstrap_statistics_spherical_3d(
             bin_accumulators, angular_accumulators,
             bins_config['n_bins_r'], bins_config['n_bins_theta'], bins_config['n_bins_phi'],
-            ci_method=ci_method, confidence_level=confidence_level
+            confidence_level=confidence_level, 
         )
     
     # Calculate bin density
@@ -3392,7 +3449,7 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
                     continue
                     
                 # Run Monte Carlo
-                sf_results, dx_vals, dy_vals, dz_vals = monte_carlo_simulation_3d(
+                sf_results, dx_vals, dy_vals, dz_vals, pair_counts_results = monte_carlo_simulation_3d(
                     ds=valid_ds, dims=dims, variables_names=variables_names,
                     order=order, nbootstrap=sp_bootstraps,
                     bootsize=bootsize_dict, num_bootstrappable=num_bootstrappable,
@@ -3402,23 +3459,25 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
                     conditioning_var=conditioning_var, conditioning_bins=conditioning_bins
                 )
                 
-                # Process batch based on type (no count updates)
+                # Process batch based on type (accumulate counts)
                 if is_3d:
                     _process_bootstrap_batch_3d(
                         sf_results, dx_vals, dy_vals, dz_vals,
                         bins_config['bins_x'], bins_config['bins_y'], bins_config['bins_z'],
-                        bin_accumulators, set(bin_list), None,
-                        bin_spacing_counts, sp_value, False
+                        bin_accumulators, set(bin_list), point_counts,
+                        bin_spacing_counts, sp_value, True,
+                        pair_counts_results=pair_counts_results
                     )
                 else:
                     _process_bootstrap_batch_spherical_3d(
                         sf_results, dx_vals, dy_vals, dz_vals,
                         bins_config['r_bins'], bins_config['theta_bins'], bins_config['phi_bins'],
                         bin_accumulators, angular_accumulators, set(bin_list),
-                        None, bin_spacing_counts, sp_value, False
+                        point_counts, bin_spacing_counts, sp_value, True,
+                        pair_counts_results=pair_counts_results
                     )
                 
-                del sf_results, dx_vals, dy_vals, dz_vals
+                del sf_results, dx_vals, dy_vals, dz_vals, pair_counts_results
                 gc.collect()
             
             # Update statistics and check convergence for this group
@@ -3432,19 +3491,11 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
                         acc = bin_accumulators[(k, j, i)]
                         if acc['total_weight'] > 0:
                             if len(acc['bootstrap_samples']) > 1:
-                                boot_means = np.array([s['mean'] for s in acc['bootstrap_samples']])
-                                boot_weights = np.array([s['weight'] for s in acc['bootstrap_samples']])
-                                
-                                # Weighted mean
-                                sf_means[k, j, i] = np.average(boot_means, weights=boot_weights)
-                                
-                                # Weighted std
-                                weighted_var = np.average((boot_means - sf_means[k, j, i])**2, weights=boot_weights)
-                                sf_stds[k, j, i] = np.sqrt(weighted_var)
-                                
-                                # Weighted CI (standard method for 3D volume)
-                                ci_lower[k, j, i] = sf_means[k, j, i] - z_score * sf_stds[k, j, i]
-                                ci_upper[k, j, i] = sf_means[k, j, i] + z_score * sf_stds[k, j, i]
+                                sf_means[k, j, i], sf_stds[k, j, i], ci_lower[k, j, i], ci_upper[k, j, i] = \
+                                    _compute_weighted_bootstrap_stats(
+                                        acc['bootstrap_samples'],
+                                        confidence_level=confidence_level
+                                    )
                             else:
                                 sf_means[k, j, i] = acc['weighted_sum'] / acc['total_weight']
                         
@@ -3465,8 +3516,7 @@ def _run_adaptive_bootstrap_loop_3d(valid_ds, dims, variables_names, order, fun,
                                 sf_means[r_idx], sf_stds[r_idx], ci_lower[r_idx], ci_upper[r_idx] = \
                                     _compute_weighted_bootstrap_stats(
                                         acc['bootstrap_samples'],
-                                        confidence_level=confidence_level,
-                                        ci_method=ci_method
+                                        confidence_level=confidence_level
                                     )
                             else:
                                 sf_means[r_idx] = acc['weighted_sum'] / acc['total_weight']

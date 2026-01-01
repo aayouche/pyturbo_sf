@@ -306,7 +306,7 @@ class TestStructureFunctions1D:
     def test_calc_scalar_1d_basic(self, dataset_1d):
         """Test basic scalar structure function calculation."""
         n_points = len(dataset_1d.x)
-        results, separations = calc_scalar_1d(
+        results, separations, pair_counts = calc_scalar_1d(
             dataset_1d, "x", "temperature", order=2, n_points=n_points
         )
         
@@ -322,7 +322,7 @@ class TestStructureFunctions1D:
     def test_calc_scalar_1d_order_1(self, dataset_1d):
         """Test first-order scalar structure function."""
         n_points = len(dataset_1d.x)
-        results, separations = calc_scalar_1d(
+        results, separations, pair_counts = calc_scalar_1d(
             dataset_1d, "x", "temperature", order=1, n_points=n_points
         )
         
@@ -332,7 +332,7 @@ class TestStructureFunctions1D:
     def test_calc_scalar_1d_order_3(self, dataset_1d):
         """Test third-order scalar structure function."""
         n_points = len(dataset_1d.x)
-        results, separations = calc_scalar_1d(
+        results, separations, pair_counts = calc_scalar_1d(
             dataset_1d, "x", "temperature", order=3, n_points=n_points
         )
         
@@ -342,7 +342,7 @@ class TestStructureFunctions1D:
     def test_calc_scalar_1d_with_mask(self, dataset_1d_with_mask):
         """Test scalar structure function with masking."""
         n_points = len(dataset_1d_with_mask.x)
-        results, separations = calc_scalar_1d(
+        results, separations, pair_counts = calc_scalar_1d(
             dataset_1d_with_mask, "x", "temperature", order=2, n_points=n_points,
             conditioning_var="mask", conditioning_bins=[1, 2]
         )
@@ -355,7 +355,7 @@ class TestStructureFunctions1D:
     def test_calc_scalar_scalar_1d_basic(self, dataset_1d):
         """Test scalar-scalar structure function."""
         n_points = len(dataset_1d.x)
-        results, separations = calc_scalar_scalar_1d(
+        results, separations, pair_counts = calc_scalar_scalar_1d(
             dataset_1d, "x", ["temperature", "salinity"], order=(1, 1), n_points=n_points
         )
         
@@ -366,7 +366,7 @@ class TestStructureFunctions1D:
     def test_calc_scalar_scalar_1d_different_orders(self, dataset_1d):
         """Test scalar-scalar structure function with different orders."""
         n_points = len(dataset_1d.x)
-        results, separations = calc_scalar_scalar_1d(
+        results, separations, pair_counts = calc_scalar_scalar_1d(
             dataset_1d, "x", ["temperature", "salinity"], order=(2, 1), n_points=n_points
         )
         
@@ -391,7 +391,7 @@ class TestStructureFunctions1D:
             
     def test_calculate_structure_function_1d_scalar(self, dataset_1d):
         """Test main 1D wrapper with scalar function."""
-        results, separations = calculate_structure_function_1d(
+        results, separations, pair_counts = calculate_structure_function_1d(
             dataset_1d, "x", ["temperature"], order=2, fun='scalar'
         )
         
@@ -400,7 +400,7 @@ class TestStructureFunctions1D:
         
     def test_calculate_structure_function_1d_scalar_scalar(self, dataset_1d):
         """Test main 1D wrapper with scalar-scalar function."""
-        results, separations = calculate_structure_function_1d(
+        results, separations, pair_counts = calculate_structure_function_1d(
             dataset_1d, "x", ["temperature", "salinity"], order=(1, 1), fun='scalar_scalar'
         )
         
@@ -435,7 +435,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_longitudinal_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_2d(
             dataset_2d, ["u", "v"], order=2, dims=dims, ny=ny, nx=nx
         )
         
@@ -449,7 +449,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_longitudinal_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_2d(
             dataset_2d, ["u", "v"], order=3, dims=dims, ny=ny, nx=nx
         )
         
@@ -461,7 +461,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d_with_mask.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_longitudinal_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_2d(
             dataset_2d_with_mask, ["u", "v"], order=2, dims=dims, ny=ny, nx=nx,
             conditioning_var="mask", conditioning_bins=[1, 2]
         )
@@ -484,7 +484,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_transverse_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_transverse_2d(
             dataset_2d, ["u", "v"], order=2, dims=dims, ny=ny, nx=nx
         )
         
@@ -497,7 +497,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_default_vel_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_default_vel_2d(
             dataset_2d, ["u", "v"], order=2, dims=dims, ny=ny, nx=nx
         )
         
@@ -510,7 +510,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.temperature.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_scalar_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_scalar_2d(
             dataset_2d, ["temperature"], order=2, dims=dims, ny=ny, nx=nx
         )
         
@@ -533,7 +533,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.temperature.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_scalar_scalar_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_scalar_scalar_2d(
             dataset_2d, ["temperature", "salinity"], order=(1, 1), dims=dims, ny=ny, nx=nx
         )
         
@@ -556,7 +556,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_longitudinal_transverse_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_transverse_2d(
             dataset_2d, ["u", "v"], order=(1, 1), dims=dims, ny=ny, nx=nx
         )
         
@@ -569,7 +569,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_longitudinal_scalar_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_scalar_2d(
             dataset_2d, ["u", "v", "temperature"], order=(1, 1), dims=dims, ny=ny, nx=nx
         )
         
@@ -582,7 +582,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_transverse_scalar_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_transverse_scalar_2d(
             dataset_2d, ["u", "v", "temperature"], order=(1, 1), dims=dims, ny=ny, nx=nx
         )
         
@@ -595,7 +595,7 @@ class TestStructureFunctions2D:
         ny, nx = dataset_2d_advective.u.shape
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calc_advective_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_advective_2d(
             dataset_2d_advective, ["u", "v", "u_adv", "v_adv"], order=1, 
             dims=dims, ny=ny, nx=nx
         )
@@ -609,7 +609,7 @@ class TestStructureFunctions2D:
         nz, nx = dataset_2d_zx.u.shape
         dims = ["z", "x"]
         
-        results, dx_vals, dy_vals = calc_longitudinal_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_2d(
             dataset_2d_zx, ["u", "w"], order=2, dims=dims, ny=nz, nx=nx
         )
         
@@ -621,7 +621,7 @@ class TestStructureFunctions2D:
         """Test main 2D wrapper with longitudinal function."""
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             dataset_2d, dims, ["u", "v"], order=2, fun='longitudinal'
         )
         
@@ -632,7 +632,7 @@ class TestStructureFunctions2D:
         """Test main 2D wrapper with transverse function."""
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             dataset_2d, dims, ["u", "v"], order=2, fun='transverse'
         )
         
@@ -642,7 +642,7 @@ class TestStructureFunctions2D:
         """Test main 2D wrapper with scalar function."""
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             dataset_2d, dims, ["temperature"], order=2, fun='scalar'
         )
         
@@ -680,7 +680,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_3d(
             dataset_3d, ["u", "v", "w"], order=2, dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -695,7 +695,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d_with_mask.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_3d(
             dataset_3d_with_mask, ["u", "v", "w"], order=2, dims=dims, 
             nz=nz, ny=ny, nx=nx, conditioning_var="mask", conditioning_bins=[1, 2]
         )
@@ -708,7 +708,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ij(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ij(
             dataset_3d, ["u", "v"], order=2, dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -720,7 +720,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ik(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ik(
             dataset_3d, ["u", "w"], order=2, dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -732,7 +732,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.v.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_jk(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_jk(
             dataset_3d, ["v", "w"], order=2, dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -755,7 +755,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_default_vel_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_default_vel_3d(
             dataset_3d, ["u", "v", "w"], order=2, dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -768,7 +768,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.temperature.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_scalar_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_scalar_3d(
             dataset_3d, ["temperature"], order=2, dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -781,7 +781,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.temperature.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_scalar_scalar_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_scalar_scalar_3d(
             dataset_3d, ["temperature", "salinity"], order=(1, 1), 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -795,7 +795,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_scalar_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_scalar_3d(
             dataset_3d, ["u", "v", "w", "temperature"], order=(1, 1), 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -809,7 +809,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ij_scalar(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ij_scalar(
             dataset_3d, ["u", "v", "temperature"], order=(1, 1), 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -822,7 +822,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ik_scalar(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ik_scalar(
             dataset_3d, ["u", "w", "temperature"], order=(1, 1), 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -835,7 +835,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.v.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_jk_scalar(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_jk_scalar(
             dataset_3d, ["v", "w", "temperature"], order=(1, 1), 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -849,7 +849,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_transverse_ij(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_transverse_ij(
             dataset_3d, ["u", "v"], order=(1, 1), dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -861,7 +861,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_transverse_ik(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_transverse_ik(
             dataset_3d, ["u", "w"], order=(1, 1), dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -873,7 +873,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d.v.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_transverse_jk(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_transverse_jk(
             dataset_3d, ["v", "w"], order=(1, 1), dims=dims, nz=nz, ny=ny, nx=nx
         )
         
@@ -892,7 +892,7 @@ class TestStructureFunctions3D:
         ds["v_adv"] = ds["v"]
         ds["w_adv"] = ds["w"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_advective_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_advective_3d(
             ds, ["u", "v", "w", "u_adv", "v_adv", "w_adv"], order=1, 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -906,7 +906,7 @@ class TestStructureFunctions3D:
         nz, ny, nx = dataset_3d_pressure.u.shape
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calc_pressure_work_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_pressure_work_3d(
             dataset_3d_pressure, ["u", "v", "w", "pressure"], order=1, 
             dims=dims, nz=nz, ny=ny, nx=nx
         )
@@ -919,7 +919,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with longitudinal function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["u", "v", "w"], order=2, fun='longitudinal'
         )
         
@@ -930,7 +930,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with transverse_ij function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["u", "v"], order=2, fun='transverse_ij'
         )
         
@@ -940,7 +940,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with transverse_ik function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["u", "w"], order=2, fun='transverse_ik'
         )
         
@@ -950,7 +950,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with transverse_jk function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["v", "w"], order=2, fun='transverse_jk'
         )
         
@@ -960,7 +960,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with scalar function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["temperature"], order=2, fun='scalar'
         )
         
@@ -970,7 +970,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with scalar_scalar function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["temperature", "salinity"], order=(1, 1), fun='scalar_scalar'
         )
         
@@ -980,7 +980,7 @@ class TestStructureFunctions3D:
         """Test main 3D wrapper with default_vel function."""
         dims = ["z", "y", "x"]
         
-        results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
             dataset_3d, dims, ["u", "v", "w"], order=2, fun='default_vel'
         )
         
@@ -1023,7 +1023,7 @@ class TestEdgeCases:
             coords={"x": x}
         )
         
-        results, separations = calculate_structure_function_1d(
+        results, separations, pair_counts = calculate_structure_function_1d(
             ds, "x", ["temperature"], order=2, fun='scalar'
         )
         
@@ -1050,7 +1050,7 @@ class TestEdgeCases:
             }
         )
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             ds, ["y", "x"], ["u", "v"], order=2, fun='longitudinal'
         )
         
@@ -1067,7 +1067,7 @@ class TestEdgeCases:
             coords={"x": x}
         )
         
-        results, separations = calculate_structure_function_1d(
+        results, separations, pair_counts = calculate_structure_function_1d(
             ds, "x", ["temperature"], order=2, fun='scalar'
         )
         
@@ -1096,7 +1096,7 @@ class TestEdgeCases:
             }
         )
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             ds, ["y", "x"], ["u", "v"], order=2, fun='longitudinal'
         )
         
@@ -1109,7 +1109,7 @@ class TestEdgeCases:
         dims = ["y", "x"]
         
         # Use a mask condition that excludes everything
-        results, dx_vals, dy_vals = calc_longitudinal_2d(
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_2d(
             dataset_2d_with_mask, ["u", "v"], order=2, dims=dims, ny=ny, nx=nx,
             conditioning_var="mask", conditioning_bins=[99, 100]  # No points have this value
         )
@@ -1129,7 +1129,7 @@ class TestNumericalProperties:
         """Test that second-order structure functions are non-negative."""
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             dataset_2d, dims, ["u", "v"], order=2, fun='longitudinal'
         )
         
@@ -1141,7 +1141,7 @@ class TestNumericalProperties:
         """Test that third-order structure functions can be negative."""
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             dataset_2d, dims, ["u", "v"], order=3, fun='longitudinal'
         )
         
@@ -1154,7 +1154,7 @@ class TestNumericalProperties:
         """Test that separation distances are computed consistently."""
         dims = ["y", "x"]
         
-        results, dx_vals, dy_vals = calculate_structure_function_2d(
+        results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
             dataset_2d, dims, ["temperature"], order=2, fun='scalar'
         )
         

@@ -36,6 +36,8 @@ from pyturbo_sf.bootstrapping_tools import (
     _group_bins_for_iteration_3d,
     _get_spacing_distribution_3d,
     _update_spacing_effectiveness_3d,
+    # Weighted bootstrap statistics
+    _compute_weighted_bootstrap_stats,
 )
 
 
@@ -166,7 +168,7 @@ class TestCalculateBootstrapStatistics1D:
             }
         
         sf_means, sf_stds, ci_lower, ci_upper = _calculate_bootstrap_statistics_1d(
-            bin_accumulators, n_bins, ci_method='percentile', confidence_level=0.95
+            bin_accumulators, n_bins, confidence_level=0.95
         )
         
         assert sf_means.shape == (n_bins,)
@@ -180,8 +182,8 @@ class TestCalculateBootstrapStatistics1D:
         valid = ~np.isnan(ci_lower) & ~np.isnan(ci_upper)
         assert np.all(ci_upper[valid] >= ci_lower[valid])
         
-    def test_standard_ci_method(self):
-        """Test standard CI calculation method."""
+    def test_different_confidence_levels(self):
+        """Test different confidence levels."""
         n_bins = 5
         
         bin_accumulators = {}
@@ -196,15 +198,13 @@ class TestCalculateBootstrapStatistics1D:
             }
         
         sf_means, sf_stds, ci_lower, ci_upper = _calculate_bootstrap_statistics_1d(
-            bin_accumulators, n_bins, ci_method='standard', confidence_level=0.95
+            bin_accumulators, n_bins, confidence_level=0.95
         )
         
-        # Check that CIs are symmetric around mean for standard method
+        # Check that CIs are valid
         for j in range(n_bins):
             if not np.isnan(ci_lower[j]) and not np.isnan(ci_upper[j]):
-                lower_diff = sf_means[j] - ci_lower[j]
-                upper_diff = ci_upper[j] - sf_means[j]
-                assert np.isclose(lower_diff, upper_diff, rtol=0.01)
+                assert ci_lower[j] <= ci_upper[j]
                 
     def test_empty_accumulators(self):
         """Test with empty accumulators."""
@@ -620,7 +620,7 @@ class TestMonteCarloSimulation1D:
     
     def test_no_bootstrappable_dims(self, dataset_1d):
         """Test MC simulation with no bootstrappable dimensions."""
-        sf_results, separations = monte_carlo_simulation_1d(
+        sf_results, separations, pair_counts_results = monte_carlo_simulation_1d(
             ds=dataset_1d,
             dim="x",
             variables_names=["temperature"],
@@ -636,6 +636,7 @@ class TestMonteCarloSimulation1D:
         # Should return single result
         assert len(sf_results) == 1
         assert len(separations) == 1
+        assert len(pair_counts_results) == 1
 
 
 class TestMonteCarloSimulation2D:
@@ -643,7 +644,7 @@ class TestMonteCarloSimulation2D:
     
     def test_no_bootstrappable_dims_2d(self, dataset_2d):
         """Test 2D MC simulation with no bootstrappable dimensions."""
-        sf_results, dx_vals, dy_vals = monte_carlo_simulation_2d(
+        sf_results, dx_vals, dy_vals, pair_counts_results = monte_carlo_simulation_2d(
             ds=dataset_2d,
             dims=["y", "x"],
             variables_names=["u", "v"],
@@ -660,6 +661,7 @@ class TestMonteCarloSimulation2D:
         assert len(sf_results) == 1
         assert len(dx_vals) == 1
         assert len(dy_vals) == 1
+        assert len(pair_counts_results) == 1
 
 
 class TestMonteCarloSimulation3D:
@@ -667,7 +669,7 @@ class TestMonteCarloSimulation3D:
     
     def test_no_bootstrappable_dims_3d(self, dataset_3d):
         """Test 3D MC simulation with no bootstrappable dimensions."""
-        sf_results, dx_vals, dy_vals, dz_vals = monte_carlo_simulation_3d(
+        sf_results, dx_vals, dy_vals, dz_vals, pair_counts_results = monte_carlo_simulation_3d(
             ds=dataset_3d,
             dims=["z", "y", "x"],
             variables_names=["u", "v", "w"],
@@ -685,6 +687,7 @@ class TestMonteCarloSimulation3D:
         assert len(dx_vals) == 1
         assert len(dy_vals) == 1
         assert len(dz_vals) == 1
+        assert len(pair_counts_results) == 1
 
 
 # =============================================================================
@@ -796,38 +799,192 @@ class TestBootstrapEdgeCases:
         assert np.all(converged)
 
 
-class TestConfidenceIntervalMethods:
-    """Tests for different CI calculation methods."""
+# =============================================================================
+# Tests for weighted bootstrap statistics with n_eff correction
+# =============================================================================
+
+class TestComputeWeightedBootstrapStats:
+    """Tests for _compute_weighted_bootstrap_stats function with n_eff correction."""
     
-    def test_percentile_vs_standard(self):
-        """Test that percentile and standard methods give different results."""
-        n_bins = 5
+    def test_basic_computation(self):
+        """Test basic computation with simple data."""
+        bootstrap_samples = [
+            {'mean': 1.0, 'weight': 10},
+            {'mean': 2.0, 'weight': 20},
+            {'mean': 3.0, 'weight': 30},
+        ]
         
-        # Create asymmetric bootstrap distribution
+        weighted_mean, std_error, ci_lower, ci_upper = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.95
+        )
+        
+        # Weighted mean should be closer to 3.0 due to higher weight
+        assert 1.0 <= weighted_mean <= 3.0
+        assert weighted_mean > 1.5  # Should be pulled toward 3.0
+        
+        # Standard error should be positive
+        assert std_error >= 0
+        
+        # CI should bracket the mean
+        assert ci_lower <= weighted_mean <= ci_upper
+        
+    def test_equal_weights(self):
+        """Test with equal weights - should match numpy SE calculation."""
+        bootstrap_samples = [
+            {'mean': 10.0, 'weight': 100},
+            {'mean': 12.0, 'weight': 100},
+            {'mean': 11.0, 'weight': 100},
+            {'mean': 13.0, 'weight': 100},
+            {'mean': 9.0, 'weight': 100},
+            {'mean': 11.0, 'weight': 100},
+            {'mean': 10.0, 'weight': 100},
+            {'mean': 12.0, 'weight': 100},
+        ]
+        
+        weighted_mean, std_error, ci_lower, ci_upper = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.95
+        )
+        
+        # With equal weights, weighted mean should be simple average
+        means = np.array([s['mean'] for s in bootstrap_samples])
+        expected_mean = np.mean(means)
+        expected_se = np.std(means, ddof=1) / np.sqrt(len(means))
+        
+        assert np.abs(weighted_mean - expected_mean) < 0.01
+        assert np.abs(std_error - expected_se) < 0.01
+        
+    def test_n_eff_calculation(self):
+        """Test that effective sample size is correctly calculated."""
+        # With equal weights, n_eff should equal actual n
+        bootstrap_samples = [
+            {'mean': 1.0, 'weight': 10},
+            {'mean': 2.0, 'weight': 10},
+            {'mean': 3.0, 'weight': 10},
+        ]
+        
+        # n_eff = (sum(w))^2 / sum(w^2) = (30)^2 / (300) = 3.0
+        weights = np.array([10, 10, 10])
+        expected_n_eff = (np.sum(weights)**2) / np.sum(weights**2)
+        assert expected_n_eff == 3.0
+        
+        # With unequal weights, n_eff should be less than n
+        bootstrap_samples_unequal = [
+            {'mean': 1.0, 'weight': 1000},
+            {'mean': 2.0, 'weight': 100},
+            {'mean': 3.0, 'weight': 500},
+        ]
+        
+        weights_unequal = np.array([1000, 100, 500])
+        n_eff_unequal = (np.sum(weights_unequal)**2) / np.sum(weights_unequal**2)
+        assert n_eff_unequal < 3.0  # Should be less than actual n
+        assert n_eff_unequal > 1.0  # But greater than 1
+        
+    def test_confidence_interval_width(self):
+        """Test that higher confidence means wider interval."""
+        bootstrap_samples = [
+            {'mean': 1.0, 'weight': 10},
+            {'mean': 2.0, 'weight': 20},
+            {'mean': 3.0, 'weight': 30},
+            {'mean': 2.5, 'weight': 25},
+        ]
+        
+        _, _, ci_lower_95, ci_upper_95 = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.95
+        )
+        _, _, ci_lower_99, ci_upper_99 = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.99
+        )
+        
+        width_95 = ci_upper_95 - ci_lower_95
+        width_99 = ci_upper_99 - ci_lower_99
+        
+        # 99% CI should be wider than 95% CI
+        assert width_99 > width_95
+        
+    def test_single_sample(self):
+        """Test behavior with single bootstrap sample."""
+        bootstrap_samples = [
+            {'mean': 5.0, 'weight': 100},
+        ]
+        
+        weighted_mean, std_error, ci_lower, ci_upper = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.95
+        )
+        
+        # Should return the single value with NaN for stats
+        assert weighted_mean == 5.0
+        assert np.isnan(std_error)
+        
+    def test_empty_samples(self):
+        """Test behavior with empty bootstrap samples."""
+        bootstrap_samples = []
+        
+        weighted_mean, std_error, ci_lower, ci_upper = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.95
+        )
+        
+        # Should return NaN for all
+        assert np.isnan(weighted_mean)
+        assert np.isnan(std_error)
+        assert np.isnan(ci_lower)
+        assert np.isnan(ci_upper)
+        
+    def test_ci_symmetric_around_mean(self):
+        """Test that CI is symmetric around the mean (normal approximation)."""
+        bootstrap_samples = [
+            {'mean': 1.0, 'weight': 10},
+            {'mean': 2.0, 'weight': 10},
+            {'mean': 3.0, 'weight': 10},
+            {'mean': 4.0, 'weight': 10},
+            {'mean': 5.0, 'weight': 10},
+        ]
+        
+        weighted_mean, std_error, ci_lower, ci_upper = _compute_weighted_bootstrap_stats(
+            bootstrap_samples, confidence_level=0.95
+        )
+        
+        # Distance from mean to lower should equal distance from mean to upper
+        dist_lower = weighted_mean - ci_lower
+        dist_upper = ci_upper - weighted_mean
+        
+        assert np.abs(dist_lower - dist_upper) < 1e-10
+
+
+class TestPairCountsWeighting:
+    """Tests for proper pair_counts weighting in batch processing."""
+    
+    def test_2d_batch_uses_pair_counts(self):
+        """Test that _process_bootstrap_batch_2d properly uses pair_counts for weighting."""
+        # Create mock SF results with different pair counts
+        sf_results = [np.array([1.0, 2.0, 3.0])]  # One bootstrap with 3 separations
+        dx_vals = [np.array([0.5, 1.5, 2.5])]
+        dy_vals = [np.array([0.5, 1.5, 2.5])]
+        pair_counts_results = [np.array([10, 100, 50])]  # Different pair counts per separation
+        
+        bins_x = np.array([0.0, 1.0, 2.0, 3.0])  # 3 bins
+        bins_y = np.array([0.0, 1.0, 2.0, 3.0])
+        
         bin_accumulators = {}
-        np.random.seed(42)
-        for j in range(n_bins):
-            samples = np.abs(np.random.randn(50))  # Skewed distribution
-            bin_accumulators[j] = {
-                'weighted_sum': np.sum(samples),
-                'total_weight': len(samples),
-                'bootstrap_samples': [{'mean': s, 'weight': np.random.rand() + 0.1} for s in samples]
-            }
+        target_bins = {(0, 0), (1, 1), (2, 2)}  # Target diagonal bins
         
-        # Percentile method
-        _, _, ci_lower_pct, ci_upper_pct = _calculate_bootstrap_statistics_1d(
-            bin_accumulators, n_bins, ci_method='percentile'
+        updated = _process_bootstrap_batch_2d(
+            sf_results, dx_vals, dy_vals, bins_x, bins_y,
+            bin_accumulators, target_bins, pair_counts_results=pair_counts_results
         )
         
-        # Standard method
-        _, _, ci_lower_std, ci_upper_std = _calculate_bootstrap_statistics_1d(
-            bin_accumulators, n_bins, ci_method='standard'
-        )
+        # Should have updated some bins
+        assert len(updated) > 0
         
-        # Results should be different (for skewed distribution)
-        valid = ~np.isnan(ci_lower_pct) & ~np.isnan(ci_lower_std)
-        # At least some should differ
-        assert np.any(~np.isclose(ci_lower_pct[valid], ci_lower_std[valid], rtol=0.1))
+        # Check that weighted_sum uses pair_counts as weights
+        for bin_key in updated:
+            if bin_key in bin_accumulators:
+                acc = bin_accumulators[bin_key]
+                # total_weight should reflect pair counts, not just count of separations
+                assert acc['total_weight'] > 0
+                # bootstrap_samples should have weights based on pair_counts
+                for sample in acc['bootstrap_samples']:
+                    assert 'weight' in sample
+                    assert sample['weight'] > 0
 
 
 if __name__ == "__main__":

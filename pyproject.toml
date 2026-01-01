@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyturbo_sf"
-version = "1.0.5"
+version = "1.0.6"
 description = "Python Turbulence Unleashed: Rapid Binning Operator"
 readme = "README.md"
 authors = [
@@ -41,10 +41,20 @@ dev = [
     "memory_profiler>=0.61.0",
 ]
 docs = [
-    "sphinx>=9.0.0",
+    "sphinx>=6.0.0,<9.0.0",
     "sphinx-rtd-theme>=3.0.2",
     "nbsphinx>=0.9.8",
     "ipython>=8.30.0",
+]
+extras = [
+    "pyproj",
+    "tqdm",
+    "h5netcdf",
+    "netcdf4",
+    "jupyter",
+]
+complete = [
+    "pyturbo_sf[dev,docs,extras]",
 ]
 
 [project.urls]

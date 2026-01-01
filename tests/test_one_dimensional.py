@@ -10,7 +10,7 @@ import numpy as np
 import xarray as xr
 from datetime import datetime, timedelta
 
-from pyturbo_sf.one_dimensional import bin_sf_1d, VALID_CI_METHODS
+from pyturbo_sf.one_dimensional import bin_sf_1d
 
 
 # =============================================================================
@@ -203,109 +203,6 @@ class TestBinSF1DBasic:
         assert result.attrs['bin_type'] == 'linear'
 
 
-class TestBinSF1DConfidenceIntervals:
-    """Tests for confidence interval methods in bin_sf_1d."""
-    
-    def test_percentile_ci_method(self, dataset_1d_scalar, linear_bins):
-        """Test percentile CI method (default)."""
-        bins = {"x": linear_bins}
-        
-        result = bin_sf_1d(
-            ds=dataset_1d_scalar,
-            variables_names=["scalar1"],
-            order=2,
-            bins=bins,
-            bootsize=16,
-            fun='scalar',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            ci_method='percentile',
-            confidence_interval=0.95,
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'percentile'
-        assert result.attrs['confidence_level'] == 0.95
-        assert 'ci_upper' in result.data_vars
-        assert 'ci_lower' in result.data_vars
-        
-    def test_standard_ci_method(self, dataset_1d_scalar, linear_bins):
-        """Test standard CI method."""
-        bins = {"x": linear_bins}
-        
-        result = bin_sf_1d(
-            ds=dataset_1d_scalar,
-            variables_names=["scalar1"],
-            order=2,
-            bins=bins,
-            bootsize=16,
-            fun='scalar',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            ci_method='standard',
-            confidence_interval=0.95,
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'standard'
-        
-    def test_different_confidence_levels(self, dataset_1d_scalar, linear_bins):
-        """Test different confidence levels."""
-        bins = {"x": linear_bins}
-        
-        # 95% CI
-        result_95 = bin_sf_1d(
-            ds=dataset_1d_scalar,
-            variables_names=["scalar1"],
-            order=2,
-            bins=bins,
-            bootsize=16,
-            fun='scalar',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            confidence_interval=0.95,
-            n_jobs=1
-        )
-        
-        # 99% CI
-        result_99 = bin_sf_1d(
-            ds=dataset_1d_scalar,
-            variables_names=["scalar1"],
-            order=2,
-            bins=bins,
-            bootsize=16,
-            fun='scalar',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            confidence_interval=0.99,
-            n_jobs=1
-        )
-        
-        assert result_95.attrs['confidence_level'] == 0.95
-        assert result_99.attrs['confidence_level'] == 0.99
-        
-    def test_invalid_ci_method_raises_error(self, dataset_1d_scalar, linear_bins):
-        """Test that invalid CI method raises ValueError."""
-        bins = {"x": linear_bins}
-        
-        with pytest.raises(ValueError, match="ci_method must be one of"):
-            bin_sf_1d(
-                ds=dataset_1d_scalar,
-                variables_names=["scalar1"],
-                order=2,
-                bins=bins,
-                bootsize=16,
-                fun='scalar',
-                ci_method='invalid_method',
-                n_jobs=1
-            )
-            
-    def test_valid_ci_methods_constant(self):
-        """Test that VALID_CI_METHODS contains expected values."""
-        assert 'standard' in VALID_CI_METHODS
-        assert 'percentile' in VALID_CI_METHODS
-
-
 class TestBinSF1DWithConditioning:
     """Tests for bin_sf_1d with conditioning."""
     
@@ -373,10 +270,21 @@ class TestBinSF1DNoBootstrap:
         
         assert isinstance(result, xr.Dataset)
         assert 'sf' in result.data_vars
+        assert 'std_error' in result.data_vars
+        assert 'ci_lower' in result.data_vars
+        assert 'ci_upper' in result.data_vars
         assert 'point_counts' in result.data_vars
         assert result.attrs['bootstrappable_dimensions'] == 'none'
-        # CI method falls back to standard when no bootstrap
-        assert result.attrs['ci_method'] == 'standard'
+        
+        # CI should bracket the mean where both are valid
+        sf = result['sf'].values
+        ci_lower = result['ci_lower'].values
+        ci_upper = result['ci_upper'].values
+        
+        valid = ~np.isnan(sf) & ~np.isnan(ci_lower) & ~np.isnan(ci_upper)
+        if np.any(valid):
+            assert np.all(ci_lower[valid] <= sf[valid] + 1e-10)
+            assert np.all(sf[valid] <= ci_upper[valid] + 1e-10)
 
 
 class TestBinSF1DTimeDimension:
@@ -556,12 +464,11 @@ class TestBinSF1DOutputStructure:
             initial_nbootstrap=5,
             max_nbootstrap=10,
             confidence_interval=0.95,
-            ci_method='percentile',
             n_jobs=1
         )
         
         expected_attrs = ['bin_type', 'order', 'function_type', 'variables',
-                         'confidence_level', 'ci_method', 'convergence_eps',
+                         'confidence_level', 'convergence_eps',
                          'max_nbootstrap', 'initial_nbootstrap', 'backend']
         for attr in expected_attrs:
             assert attr in result.attrs, f"Missing attribute: {attr}"
@@ -634,6 +541,34 @@ class TestBinSF1DNumericalResults:
         
         assert np.all(ci_lower[valid] <= sf[valid] + 1e-10), "CI lower should be <= mean"
         assert np.all(sf[valid] <= ci_upper[valid] + 1e-10), "Mean should be <= CI upper"
+
+
+# =============================================================================
+# Tests for seed parameter (reproducibility)
+# =============================================================================
+
+class TestSeedParameter:
+    """Tests for seed parameter functionality."""
+    
+    def test_bin_sf_1d_with_seed(self, dataset_1d_scalar, linear_bins):
+        """Test that bin_sf_1d accepts seed parameter."""
+        bins = {"x": linear_bins}
+        
+        result = bin_sf_1d(
+            ds=dataset_1d_scalar,
+            variables_names=["scalar1"],
+            order=2,
+            bins=bins,
+            bootsize=16,
+            fun='scalar',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1,
+            seed=42
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
 
 
 if __name__ == "__main__":

@@ -23,7 +23,30 @@ def _is_log_spaced(arr):
 ##################################Confidence Interval##############################################
 
 def _calculate_confidence_intervals(means, stds, counts, confidence_level=0.95):
-    """Calculate confidence intervals."""
+    """
+    Calculate confidence intervals using normal approximation (mean ± z * std).
+    
+    This function is used as a FALLBACK when bootstrap samples are not available.
+    When bootstrap samples are available, use weighted percentile method instead.
+    
+    Parameters
+    ----------
+    means : array
+        Point estimates
+    stds : array
+        Standard deviations or standard errors
+    counts : array
+        Number of samples per bin
+    confidence_level : float
+        Confidence level (default: 0.95)
+        
+    Returns
+    -------
+    ci_upper : array
+        Upper confidence interval bounds
+    ci_lower : array
+        Lower confidence interval bounds
+    """
     z_score = stats.norm.ppf((1 + confidence_level) / 2)
     
     ci_upper = np.full_like(means, np.nan)

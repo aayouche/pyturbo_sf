@@ -45,11 +45,11 @@ To install with optional dependencies:
 
 .. code-block:: bash
 
-   pip install pyturbo_sf[complete]
+   pip install "pyturbo_sf[complete]"
 
 
 
-Method 3: Development Installation
+Method 2: Development Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For development or to get the latest features:
@@ -66,7 +66,7 @@ For development or to get the latest features:
    # Or with optional dependencies
    pip install -e .[dev,complete]
 
-Method 4: From Source
+Method 3: From Source
 ~~~~~~~~~~~~~~~~~~~~~
 
 To install from source without cloning:
@@ -75,13 +75,13 @@ To install from source without cloning:
 
    pip install git+https://github.com/aayouche/pyturbo_sf.git
 
-Virtual Environment Setup
---------------------------
+
+Method 4: Virtual Environment Setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We strongly recommend using a virtual environment to avoid dependency conflicts.
 
-Using venv
-~~~~~~~~~~
+**Option A: Using venv (built-in Python)**
 
 .. code-block:: bash
 
@@ -92,10 +92,75 @@ Using venv
    source pyturbo_env/bin/activate
    
    # Activate (Windows)
-   pyturbo_env\\Scripts\\activate
+   pyturbo_env\Scripts\activate
    
-   # Install PyTurbo_SF
+   # Install with all optional dependencies (recommended)
+   pip install "pyturbo_sf[complete]"
+   
+   # Or install base package only
    pip install pyturbo_sf
+
+**Option B: Using Conda (Recommended for New Users)**
+
+If you don't have Python installed or are new to Python, we recommend using Miniconda, 
+a lightweight distribution that includes conda, Python, and essential packages.
+
+1. **Install Miniconda** (Linux/Mac):
+
+.. code-block:: bash
+
+   # Download Miniconda installer
+   curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+   
+   # Run installer
+   bash Miniconda3-latest-Linux-x86_64.sh
+   
+   # Follow the prompts, then restart your terminal or run:
+   source ~/.bashrc
+
+For Mac (Apple Silicon):
+
+.. code-block:: bash
+
+   curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
+   bash Miniconda3-latest-MacOSX-arm64.sh
+
+For Windows, download the installer from https://docs.conda.io/en/latest/miniconda.html
+
+2. **Create and activate a conda environment**:
+
+.. code-block:: bash
+
+   # Create a new environment with Python 3.12
+   conda create -n pyturbo_env python=3.12
+   
+   # Activate the environment
+   conda activate pyturbo_env
+
+3. **Install PyTurbo_SF with all dependencies**:
+
+.. code-block:: bash
+
+   # Install with all optional dependencies (recommended)
+   pip install "pyturbo_sf[complete]"
+   
+   # Or install base package only
+   pip install pyturbo_sf
+
+4. **Verify installation**:
+
+.. code-block:: bash
+
+   python -c "import pyturbo_sf; print(pyturbo_sf.__version__)"
+
+.. note::
+   
+   To deactivate the environment when you're done:
+   
+   .. code-block:: bash
+   
+      conda deactivate
+
 
 
 
@@ -129,7 +194,7 @@ To verify your installation, run the following in Python:
        order=2,
        bins=bins,
        fun='scalar',
-       bootsize=10,
+       bootsize={'x':10},
        initial_nbootstrap=5,
        max_nbootstrap=10
    )

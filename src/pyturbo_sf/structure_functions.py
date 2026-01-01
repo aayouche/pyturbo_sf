@@ -38,12 +38,17 @@ def calc_scalar_1d(subset, dim, variable_name, order, n_points, conditioning_var
         
     Returns
     -------
-    numpy.ndarray, numpy.ndarray
-        Structure function values, separation values
+    results : array
+        Structure function values
+    separations : array
+        Separation values
+    pair_counts : array
+        Number of valid (origin, separation) pairs for each separation
     """
     # Arrays to store results
     results = np.full(n_points, np.nan)
     separations = np.full(n_points, 0.0)
+    pair_counts = np.zeros(n_points, dtype=np.int64)
     
     # Get the scalar variable
     scalar_var = subset[variable_name].values
@@ -81,18 +86,20 @@ def calc_scalar_1d(subset, dim, variable_name, order, n_points, conditioning_var
         # Calculate scalar structure function: dscalar^n
         sf_val = dscalar ** order
         
-        # Apply conditional averaging (on origin only)
+        # Apply conditional averaging (on origin only) and count valid pairs
         if cond_mask is not None:
             sf_val_cond = np.where(cond_mask, sf_val, np.nan)
             valid_sf = ~np.isnan(sf_val_cond)
             if np.any(valid_sf):
                 results[i] = np.mean(sf_val_cond[valid_sf])
+            pair_counts[i] = np.sum(valid_sf)
         else:
             valid_sf = ~np.isnan(sf_val)
             if np.any(valid_sf):
                 results[i] = np.mean(sf_val[valid_sf])
+            pair_counts[i] = np.sum(valid_sf)
     
-    return results, separations
+    return results, separations, pair_counts
 
 
 def calc_scalar_scalar_1d(subset, dim, variables_names, order, n_points, conditioning_var=None, conditioning_bins=None):
@@ -120,8 +127,12 @@ def calc_scalar_scalar_1d(subset, dim, variables_names, order, n_points, conditi
         
     Returns
     -------
-    numpy.ndarray, numpy.ndarray
-        Structure function values, separation values
+    results : array
+        Structure function values
+    separations : array
+        Separation values
+    pair_counts : array
+        Number of valid (origin, separation) pairs for each separation
     """
     if len(variables_names) != 2:
         raise ValueError(f"Scalar-scalar structure function requires exactly 2 scalar components, got {len(variables_names)}")
@@ -138,6 +149,7 @@ def calc_scalar_scalar_1d(subset, dim, variables_names, order, n_points, conditi
     # Arrays to store results
     results = np.full(n_points, np.nan)
     separations = np.full(n_points, 0.0)
+    pair_counts = np.zeros(n_points, dtype=np.int64)
     
     # Get the scalar variables
     scalar_var1 = subset[var1].values
@@ -177,18 +189,20 @@ def calc_scalar_scalar_1d(subset, dim, variables_names, order, n_points, conditi
         # Calculate scalar-scalar structure function: dscalar1^n * dscalar2^k
         sf_val = (dscalar1 ** n) * (dscalar2 ** k)
         
-        # Apply conditional averaging (on origin only)
+        # Apply conditional averaging (on origin only) and count valid pairs
         if cond_mask is not None:
             sf_val_cond = np.where(cond_mask, sf_val, np.nan)
             valid_sf = ~np.isnan(sf_val_cond)
             if np.any(valid_sf):
                 results[i] = np.mean(sf_val_cond[valid_sf])
+            pair_counts[i] = np.sum(valid_sf)
         else:
             valid_sf = ~np.isnan(sf_val)
             if np.any(valid_sf):
                 results[i] = np.mean(sf_val[valid_sf])
+            pair_counts[i] = np.sum(valid_sf)
     
-    return results, separations
+    return results, separations, pair_counts
     
 def calculate_structure_function_1d(ds, dim, variables_names, order, fun='scalar', nb=0, 
                                    spacing=None, num_bootstrappable=0, boot_indexes=None, bootsize=None,
@@ -225,8 +239,12 @@ def calculate_structure_function_1d(ds, dim, variables_names, order, fun='scalar
         
     Returns
     -------
-    numpy.ndarray, numpy.ndarray
-        Structure function values, separation values
+    results : array
+        Structure function values
+    separations : array
+        Separation values
+    pair_counts : array
+        Number of valid (origin, separation) pairs for each separation
     """
     # If no bootstrappable dimensions, use the full dataset
     if num_bootstrappable == 0:
@@ -277,15 +295,15 @@ def calculate_structure_function_1d(ds, dim, variables_names, order, fun='scalar
             raise ValueError(f"Scalar structure function requires exactly 1 scalar variable, got {len(variables_names)}")
         
         variable_name = variables_names[0]
-        results, separations = calc_scalar_1d(subset, dim, variable_name, order, n_points, conditioning_var, conditioning_bins)
+        results, separations, pair_counts = calc_scalar_1d(subset, dim, variable_name, order, n_points, conditioning_var, conditioning_bins)
         
     elif fun == 'scalar_scalar':
-        results, separations = calc_scalar_scalar_1d(subset, dim, variables_names, order, n_points, conditioning_var, conditioning_bins)
+        results, separations, pair_counts = calc_scalar_scalar_1d(subset, dim, variables_names, order, n_points, conditioning_var, conditioning_bins)
         
     else:
         raise ValueError(f"Unsupported function type: {fun}. Only 'scalar' and 'scalar_scalar' are supported.")
         
-    return results, separations
+    return results, separations, pair_counts
 
 ##################################################################################################################################################################
 
@@ -297,6 +315,15 @@ def calc_longitudinal_2d(subset, variables_names, order, dims, ny, nx, time_dims
     or (du*dx + dw*dz)^n / |r|^n or (dv*dy + dw*dz)^n / |r|^n depending on the plane.
     
     With conditional masking: D_L^(αβ)(x,r) = ⟨[δu_L]^n I_α(x)I_β(x+r)⟩ / P_αβ
+    
+    Returns
+    -------
+    results : array
+        Mean SF value for each separation
+    dx_vals, dy_vals : array
+        Mean separation distances
+    pair_counts : array
+        Number of valid (origin, separation) pairs for each separation
     """
     if len(variables_names) != 2:
         raise ValueError(f"Longitudinal structure function requires exactly 2 velocity components, got {len(variables_names)}")
@@ -312,6 +339,7 @@ def calc_longitudinal_2d(subset, variables_names, order, dims, ny, nx, time_dims
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components
     comp1_var = subset[var1].values
@@ -385,16 +413,18 @@ def calc_longitudinal_2d(subset, variables_names, order, dims, ny, nx, time_dims
             # Compute structure function
             sf_val = (delta_parallel) ** order
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
 
 def calc_transverse_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -402,6 +432,10 @@ def calc_transverse_2d(subset, variables_names, order, dims, ny, nx, time_dims=N
     or (du*dz - dw*dx)^n / |r|^n or (dv*dz - dw*dy)^n / |r|^n depending on the plane.
     
     With conditional masking: D_T^(αβ)(x,r) = ⟨[δu_T]^n I_α(x)I_β(x+r)⟩ / P_αβ
+    
+    Returns
+    -------
+    results, dx_vals, dy_vals, pair_counts
     """
     if len(variables_names) != 2:
         raise ValueError(f"Transverse structure function requires exactly 2 velocity components, got {len(variables_names)}")
@@ -417,6 +451,7 @@ def calc_transverse_2d(subset, variables_names, order, dims, ny, nx, time_dims=N
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components
     comp1_var = subset[var1].values
@@ -490,16 +525,18 @@ def calc_transverse_2d(subset, variables_names, order, dims, ny, nx, time_dims=N
             # Compute structure function
             sf_val = (delta_perp) ** order
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
     
 def calc_default_vel_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -548,6 +585,7 @@ def calc_default_vel_2d(subset, variables_names, order, dims, ny, nx, time_dims=
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components
     comp1_var = subset[var1].values
@@ -610,16 +648,18 @@ def calc_default_vel_2d(subset, variables_names, order, dims, ny, nx, time_dims=
             dx_vals[idx] = bn.nanmean(dx)
             dy_vals[idx] = bn.nanmean(dy)
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
     
 def calc_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -639,6 +679,7 @@ def calc_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dims=None,
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the scalar variable
     scalar_var = subset[scalar_name].values
@@ -694,16 +735,18 @@ def calc_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dims=None,
             # Calculate scalar structure function
             sf_val = dscalar ** order
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
     
 def calc_scalar_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -727,6 +770,7 @@ def calc_scalar_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dim
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the scalar variables
     scalar_var1 = subset[var1].values
@@ -784,16 +828,18 @@ def calc_scalar_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dim
             # Calculate scalar-scalar structure function
             sf_val = (dscalar1 ** n) * (dscalar2 ** k)
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
 
 def calc_longitudinal_transverse_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -817,6 +863,7 @@ def calc_longitudinal_transverse_2d(subset, variables_names, order, dims, ny, nx
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components
     comp1_var = subset[var1].values
@@ -893,16 +940,18 @@ def calc_longitudinal_transverse_2d(subset, variables_names, order, dims, ny, nx
             # Calculate longitudinal-transverse structure function
             sf_val = (delta_parallel ** n) * (delta_perp ** k)
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
     
 def calc_longitudinal_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -930,6 +979,7 @@ def calc_longitudinal_scalar_2d(subset, variables_names, order, dims, ny, nx, ti
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components and scalar
     comp1_var = subset[var1].values
@@ -1009,16 +1059,18 @@ def calc_longitudinal_scalar_2d(subset, variables_names, order, dims, ny, nx, ti
             # Calculate longitudinal-scalar structure function
             sf_val = (delta_parallel ** n) * (dscalar ** k)
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
     
 def calc_transverse_scalar_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -1046,6 +1098,7 @@ def calc_transverse_scalar_2d(subset, variables_names, order, dims, ny, nx, time
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components and scalar
     comp1_var = subset[var1].values
@@ -1125,16 +1178,18 @@ def calc_transverse_scalar_2d(subset, variables_names, order, dims, ny, nx, time
             # Calculate transverse-scalar structure function
             sf_val = (delta_perp ** n) * (dscalar ** k)
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
     
 def calc_advective_2d(subset, variables_names, order, dims, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -1214,6 +1269,7 @@ def calc_advective_2d(subset, variables_names, order, dims, ny, nx, time_dims=No
     results = np.full(ny * nx, np.nan)
     dx_vals = np.full(ny * nx, 0.0)
     dy_vals = np.full(ny * nx, 0.0)
+    pair_counts = np.zeros(ny * nx, dtype=np.int64)
     
     # Get the velocity components
     comp1_var = subset[var1].values
@@ -1286,16 +1342,18 @@ def calc_advective_2d(subset, variables_names, order, dims, ny, nx, time_dims=No
             
             sf_val = advective_term ** order
             
-            # Apply conditional averaging (on origin only)
+            # Apply conditional averaging (on origin only) and count valid pairs
             if cond_mask is not None:
                 sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                 results[idx] = bn.nanmean(sf_val_cond)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
             else:
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
             
             idx += 1
             
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
 
 def calculate_structure_function_2d(ds, dims, variables_names, order, fun='longitudinal', 
                                   nbx=0, nby=0, spacing=None, num_bootstrappable=0, 
@@ -1399,36 +1457,36 @@ def calculate_structure_function_2d(ds, dims, variables_names, order, fun='longi
     
     # Calculate structure function based on specified type, passing time_dims information
     if fun == 'longitudinal':
-        results, dx_vals, dy_vals = calc_longitudinal_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_2d(subset, variables_names, order, 
                                                     dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse':
-        results, dx_vals, dy_vals = calc_transverse_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_transverse_2d(subset, variables_names, order, 
                                                   dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'default_vel':
-        results, dx_vals, dy_vals = calc_default_vel_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_default_vel_2d(subset, variables_names, order, 
                                                    dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'scalar':
-        results, dx_vals, dy_vals = calc_scalar_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_scalar_2d(subset, variables_names, order, 
                                              dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'scalar_scalar':
-        results, dx_vals, dy_vals = calc_scalar_scalar_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_scalar_scalar_2d(subset, variables_names, order, 
                                                     dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'longitudinal_transverse':
-        results, dx_vals, dy_vals = calc_longitudinal_transverse_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_transverse_2d(subset, variables_names, order, 
                                                               dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'longitudinal_scalar':
-        results, dx_vals, dy_vals = calc_longitudinal_scalar_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_longitudinal_scalar_2d(subset, variables_names, order, 
                                                           dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_scalar':
-        results, dx_vals, dy_vals = calc_transverse_scalar_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_transverse_scalar_2d(subset, variables_names, order, 
                                                         dims, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'advective':
-        results, dx_vals, dy_vals = calc_advective_2d(subset, variables_names, order, 
+        results, dx_vals, dy_vals, pair_counts = calc_advective_2d(subset, variables_names, order, 
                                                  dims, ny, nx, time_dims, conditioning_var, conditioning_bins)                                                                                                  
     else:
         raise ValueError(f"Unsupported function type: {fun}")
     
-    return results, dx_vals, dy_vals
+    return results, dx_vals, dy_vals, pair_counts
 
 ##################################################################################################################################################################
 
@@ -1479,6 +1537,7 @@ def calc_default_vel_3d(subset, variables_names, order, dims, nz, ny, nx, time_d
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Map variables to appropriate dimensions based on which dimensions are spatial
     vel_components = []
@@ -1558,12 +1617,14 @@ def calc_default_vel_3d(subset, variables_names, order, dims, nz, ny, nx, time_d
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 def calc_longitudinal_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -1610,6 +1671,7 @@ def calc_longitudinal_3d(subset, variables_names, order, dims, nz, ny, nx, time_
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Map variables to appropriate dimensions based on which dimensions are spatial
     vel_vars = variables_names.copy()
@@ -1717,12 +1779,14 @@ def calc_longitudinal_3d(subset, variables_names, order, dims, nz, ny, nx, time_
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
     
 
 def calc_transverse_ij(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -1769,6 +1833,7 @@ def calc_transverse_ij(subset, variables_names, order, dims, nz, ny, nx, time_di
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components
     u_var = subset[u].values
@@ -1851,12 +1916,14 @@ def calc_transverse_ij(subset, variables_names, order, dims, nz, ny, nx, time_di
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_transverse_ik(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -1903,6 +1970,7 @@ def calc_transverse_ik(subset, variables_names, order, dims, nz, ny, nx, time_di
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components
     u_var = subset[u].values
@@ -1985,12 +2053,14 @@ def calc_transverse_ik(subset, variables_names, order, dims, nz, ny, nx, time_di
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_transverse_jk(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -2037,6 +2107,7 @@ def calc_transverse_jk(subset, variables_names, order, dims, nz, ny, nx, time_di
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components
     v_var = subset[v].values
@@ -2119,12 +2190,14 @@ def calc_transverse_jk(subset, variables_names, order, dims, nz, ny, nx, time_di
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -2166,6 +2239,7 @@ def calc_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=N
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the scalar variable
     scalar_var = subset[scalar_name].values
@@ -2224,12 +2298,14 @@ def calc_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=N
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_longitudinal_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -2289,6 +2365,7 @@ def calc_longitudinal_scalar_3d(subset, variables_names, order, dims, nz, ny, nx
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Dictionary mapping spatial dimension indices to velocity components
     vel_by_dim = {}
@@ -2398,12 +2475,14 @@ def calc_longitudinal_scalar_3d(subset, variables_names, order, dims, nz, ny, nx
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 def calc_transverse_ij_scalar(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -2457,6 +2536,7 @@ def calc_transverse_ij_scalar(subset, variables_names, order, dims, nz, ny, nx, 
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components and scalar
     u_var = subset[u].values
@@ -2543,12 +2623,14 @@ def calc_transverse_ij_scalar(subset, variables_names, order, dims, nz, ny, nx, 
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_transverse_ik_scalar(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -2603,6 +2685,7 @@ def calc_transverse_ik_scalar(subset, variables_names, order, dims, nz, ny, nx, 
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components and scalar
     u_var = subset[u].values
@@ -2689,12 +2772,14 @@ def calc_transverse_ik_scalar(subset, variables_names, order, dims, nz, ny, nx, 
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_transverse_jk_scalar(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -2749,6 +2834,7 @@ def calc_transverse_jk_scalar(subset, variables_names, order, dims, nz, ny, nx, 
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components and scalar
     v_var = subset[v].values
@@ -2835,12 +2921,14 @@ def calc_transverse_jk_scalar(subset, variables_names, order, dims, nz, ny, nx, 
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 def calc_longitudinal_transverse_ij(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -2892,6 +2980,7 @@ def calc_longitudinal_transverse_ij(subset, variables_names, order, dims, nz, ny
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components
     u_var = subset[u].values
@@ -2985,12 +3074,14 @@ def calc_longitudinal_transverse_ij(subset, variables_names, order, dims, nz, ny
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_longitudinal_transverse_ik(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -3043,6 +3134,7 @@ def calc_longitudinal_transverse_ik(subset, variables_names, order, dims, nz, ny
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components
     u_var = subset[u].values
@@ -3136,12 +3228,14 @@ def calc_longitudinal_transverse_ik(subset, variables_names, order, dims, nz, ny
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_longitudinal_transverse_jk(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -3194,6 +3288,7 @@ def calc_longitudinal_transverse_jk(subset, variables_names, order, dims, nz, ny
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the velocity components
     v_var = subset[v].values
@@ -3287,12 +3382,14 @@ def calc_longitudinal_transverse_jk(subset, variables_names, order, dims, nz, ny
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 def calc_scalar_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
     """
@@ -3339,6 +3436,7 @@ def calc_scalar_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Get the scalar variables
     scalar1_var = subset[scalar1_name].values
@@ -3400,12 +3498,14 @@ def calc_scalar_scalar_3d(subset, variables_names, order, dims, nz, ny, nx, time
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_advective_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -3458,6 +3558,7 @@ def calc_advective_3d(subset, variables_names, order, dims, nz, ny, nx, time_dim
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Dictionary mapping spatial dimension indices to velocity and advective components
     vel_by_dim = {}
@@ -3542,12 +3643,14 @@ def calc_advective_3d(subset, variables_names, order, dims, nz, ny, nx, time_dim
                 if cond_mask is not None:
                     sf_val_cond = np.where(cond_mask, sf_val, np.nan)
                     results[idx] = bn.nanmean(sf_val_cond)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val_cond))
                 else:
                     results[idx] = bn.nanmean(sf_val)
+                    pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 
 def calc_pressure_work_3d(subset, variables_names, order, dims, nz, ny, nx, time_dims=None, conditioning_var=None, conditioning_bins=None):
@@ -3604,6 +3707,7 @@ def calc_pressure_work_3d(subset, variables_names, order, dims, nz, ny, nx, time
     dx_vals = np.full(nz * ny * nx, 0.0)
     dy_vals = np.full(nz * ny * nx, 0.0)
     dz_vals = np.full(nz * ny * nx, 0.0)  # Default to 1.0 (no conditioning for this function)
+    pair_counts = np.zeros(nz * ny * nx, dtype=np.int64)
     
     # Dictionary mapping spatial dimension indices to velocity components
     vel_by_dim = {}
@@ -3735,10 +3839,11 @@ def calc_pressure_work_3d(subset, variables_names, order, dims, nz, ny, nx, time
                 
                 # Compute structure function
                 results[idx] = bn.nanmean(sf_val)
+                pair_counts[idx] = np.sum(~np.isnan(sf_val))
                 # (No conditioning for pressure work)
                 idx += 1
                 
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
     
 def calculate_structure_function_3d(ds, dims, variables_names, order, fun='longitudinal', 
                                   nbz=0, nby=0, nbx=0, spacing=None, num_bootstrappable=0,
@@ -3853,56 +3958,56 @@ def calculate_structure_function_3d(ds, dims, variables_names, order, fun='longi
     
     # Calculate structure function based on specified type, passing time_dims information
     if fun == 'longitudinal':
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_ij':
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ij(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ij(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_ik':
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ik(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ik(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_jk':
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_jk(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_jk(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'scalar':
-        results, dx_vals, dy_vals, dz_vals = calc_scalar_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_scalar_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'scalar_scalar':
-        results, dx_vals, dy_vals, dz_vals = calc_scalar_scalar_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_scalar_scalar_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'longitudinal_scalar':
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_scalar_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_scalar_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'longitudinal_transverse_ij':
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_transverse_ij(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_transverse_ij(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'longitudinal_transverse_ik':
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_transverse_ik(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_transverse_ik(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'longitudinal_transverse_jk':
-        results, dx_vals, dy_vals, dz_vals = calc_longitudinal_transverse_jk(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_longitudinal_transverse_jk(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_ij_scalar':
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ij_scalar(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ij_scalar(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_ik_scalar':
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_ik_scalar(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_ik_scalar(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'transverse_jk_scalar':
-        results, dx_vals, dy_vals, dz_vals = calc_transverse_jk_scalar(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_transverse_jk_scalar(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'advective':
-        results, dx_vals, dy_vals, dz_vals = calc_advective_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_advective_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'pressure_work':
-        results, dx_vals, dy_vals, dz_vals = calc_pressure_work_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_pressure_work_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     elif fun == 'default_vel':
-        results, dx_vals, dy_vals, dz_vals = calc_default_vel_3d(
+        results, dx_vals, dy_vals, dz_vals, pair_counts = calc_default_vel_3d(
             subset, variables_names, order, dims, nz, ny, nx, time_dims, conditioning_var, conditioning_bins)
     else:
         raise ValueError(f"Unsupported function type: {fun}")
             
-    return results, dx_vals, dy_vals, dz_vals
+    return results, dx_vals, dy_vals, dz_vals, pair_counts
 
 ##################################################################################################################################################################

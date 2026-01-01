@@ -17,15 +17,11 @@ from .bootstrapping_tools import _run_adaptive_bootstrap_loop_1d
 
 #####################################################################################################################
 
-# Valid CI methods
-VALID_CI_METHODS = ['standard', 'percentile']
-
-
 def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar', 
              initial_nbootstrap=100, max_nbootstrap=1000, step_nbootstrap=100,
              convergence_eps=0.1, n_jobs=-1, backend='threading',
              conditioning_var=None, conditioning_bins=None, confidence_interval=0.95,
-             ci_method='percentile'):
+             seed=None):
     """
     Bin structure function results with improved weighted statistics and memory efficiency.
     
@@ -63,20 +59,15 @@ def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar',
         condition to both.
     confidence_interval : float, optional
         Confidence level for intervals. Default is 0.95.
-    ci_method : str, optional
-        Method for computing confidence intervals:
-        - 'standard': Normal approximation (mean ± z * std)
-        - 'percentile': Percentile method from bootstrap distribution (default)
+    seed : int, optional
+        Random seed for reproducibility. Use same seed for conditioned and 
+        unconditioned runs to ensure point_counts partition correctly.
         
     Returns
     --------
     xarray.Dataset
         Dataset with binned structure function results
     """
-    # Validate ci_method
-    if ci_method not in VALID_CI_METHODS:
-        raise ValueError(f"ci_method must be one of {VALID_CI_METHODS}, got '{ci_method}'")
-    
     # Validate dataset
     dim_name, data_shape = validate_dataset_1d(ds)
     
@@ -94,7 +85,7 @@ def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar',
     print(f"Variables: {variables_names}, Order: {order}")
     print(f"Bootstrap parameters: initial={initial_nbootstrap}, max={max_nbootstrap}, step={step_nbootstrap}")
     print(f"Convergence threshold: {convergence_eps}")
-    print(f"CI method: {ci_method}, confidence level: {confidence_interval}")
+    print(f"Confidence level: {confidence_interval}")
     print(f"Bootstrappable dimensions: {bootstrappable_dims} (count: {num_bootstrappable})")
     print("Using volume element weighting: |dx|")
     print("="*60 + "\n")
@@ -118,10 +109,6 @@ def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar',
         # Calculate confidence intervals (standard method - no bootstrap samples available)
         ci_upper, ci_lower = _calculate_confidence_intervals(sf_means, sf_stds, point_counts, confidence_interval)
         
-        if ci_method != 'standard':
-            print(f"Note: ci_method='{ci_method}' requested but no bootstrap samples available.")
-            print("      Using 'standard' (normal approximation) for CI calculation.")
-        
         # Create minimal dataset
         ds_binned = xr.Dataset(
             data_vars={
@@ -141,9 +128,7 @@ def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar',
                 'function_type': fun,
                 'variables': variables_names,
                 'dimension': dim_name,
-                'confidence_level': confidence_interval,
-                'ci_method': 'standard',  # Always standard when no bootstrap
-                'bootstrappable_dimensions': 'none',
+                'confidence_level': confidence_interval,                'bootstrappable_dimensions': 'none',
                 'weighting': 'volume_element'
             }
         )
@@ -158,14 +143,14 @@ def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar',
     print(f"Available spacings: {spacing_values}")
     gc.collect()
     
-    # Run adaptive bootstrap loop with ci_method
+    # Run adaptive bootstrap loop
     results = _run_adaptive_bootstrap_loop_1d(
         ds, dim_name, variables_names, order, fun,
         bins_config, initial_nbootstrap, max_nbootstrap,
         step_nbootstrap, convergence_eps, spacing_values,
         bootsize_dict, num_bootstrappable, all_spacings,
         boot_indexes, n_jobs, backend, conditioning_var, conditioning_bins,
-        confidence_level=confidence_interval, ci_method=ci_method
+        confidence_level=confidence_interval, seed=seed
     )
     
     # Add variables_names to results for dataset creation
@@ -176,7 +161,7 @@ def bin_sf_1d(ds, variables_names, order, bins, bootsize=None, fun='scalar',
     ds_binned = _create_1d_dataset(
         results, bins_config, dim_name, order, fun,
         bootstrappable_dims, convergence_eps, max_nbootstrap,
-        initial_nbootstrap, confidence_interval, backend, ci_method
+        initial_nbootstrap, confidence_interval, backend
     )
     
     print("1D SF COMPLETED SUCCESSFULLY!")

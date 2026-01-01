@@ -54,7 +54,7 @@ def _process_no_bootstrap_polar_2d(ds, dims, variables_names, order, fun, r_bins
           "Calculating structure function once with full dataset.")
     
     # Calculate structure function
-    results, dx_vals, dy_vals = calculate_structure_function_2d(
+    results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
         ds=ds,
         dims=dims,
         variables_names=variables_names,
@@ -77,10 +77,6 @@ def _process_no_bootstrap_polar_2d(ds, dims, variables_names, order, fun, r_bins
     r_valid = np.sqrt(valid_dx**2 + valid_dy**2)
     theta_valid = np.arctan2(valid_dy, valid_dx)
     
-    # Volume element weights
-    weights = r_valid
-    weights = np.maximum(weights, 1e-10)
-    
     # Create bin indices
     r_indices = np.clip(np.digitize(r_valid, bins_config['r_bins']) - 1,
                        0, bins_config['n_bins_r'] - 1)
@@ -101,17 +97,15 @@ def _process_no_bootstrap_polar_2d(ds, dims, variables_names, order, fun, r_bins
             continue
             
         bin_sf = valid_results[r_bin_mask]
-        bin_weights = weights[r_bin_mask]
         bin_theta_indices = theta_indices[r_bin_mask]
         
         point_counts[r_idx] = len(bin_sf)
         
         if len(bin_sf) > 0:
-            normalized_weights = bin_weights / np.sum(bin_weights) * len(bin_weights)
-            sf_means[r_idx] = np.average(bin_sf, weights=normalized_weights)
+            # Simple unweighted mean - each estimate counts equally
+            sf_means[r_idx] = np.mean(bin_sf)
             if len(bin_sf) > 1:
-                weighted_var = np.average((bin_sf - sf_means[r_idx])**2, weights=normalized_weights)
-                sf_stds[r_idx] = np.sqrt(weighted_var)
+                sf_stds[r_idx] = np.std(bin_sf)
         
         # Process angular bins
         for theta_idx in range(bins_config['n_bins_theta']):
@@ -120,11 +114,9 @@ def _process_no_bootstrap_polar_2d(ds, dims, variables_names, order, fun, r_bins
                 continue
             
             theta_sf = bin_sf[theta_bin_mask]
-            theta_weights = bin_weights[theta_bin_mask]
             
             if len(theta_sf) > 0:
-                normalized_theta_weights = theta_weights / np.sum(theta_weights) * len(theta_weights)
-                sfr[theta_idx, r_idx] = np.average(theta_sf, weights=normalized_theta_weights)
+                sfr[theta_idx, r_idx] = np.mean(theta_sf)
                 sfr_counts[theta_idx, r_idx] = len(theta_sf)
     
     return sf_means, sf_stds, point_counts, sfr, sfr_counts, bins_config
@@ -153,7 +145,7 @@ def _create_isotropic_dataset(results, bins_config, order, fun, window_size_thet
                             window_size_r, convergence_eps, max_nbootstrap,
                             initial_nbootstrap, bootstrappable_dims, backend,
                             variables_names, confidence_interval,
-                            ci_method='percentile', conditioning_info=None):
+                            conditioning_info=None):
     """
     Create output dataset for isotropic binning.
     
@@ -171,7 +163,7 @@ def _create_isotropic_dataset(results, bins_config, order, fun, window_size_thet
     eiso = _calculate_isotropy_error_2d(results['sfr'], results['sf_means'], window_size_theta)
     ehom, r_subset_indices = _calculate_homogeneity_error_2d(results['sfr'], window_size_r)
     
-    # Use pre-computed CIs if available (from bootstrap loop with ci_method)
+    # Use pre-computed CIs if available
     if 'ci_lower' in results and 'ci_upper' in results:
         ci_lower = results['ci_lower']
         ci_upper = results['ci_upper']
@@ -180,7 +172,6 @@ def _create_isotropic_dataset(results, bins_config, order, fun, window_size_thet
         ci_upper, ci_lower = _calculate_confidence_intervals(
             results['sf_means'], results['sf_stds'], results['point_counts'], confidence_interval
         )
-        ci_method = 'standard'
     
     # Build coordinates
     coords = {
@@ -201,7 +192,6 @@ def _create_isotropic_dataset(results, bins_config, order, fun, window_size_thet
         'bin_type': 'logarithmic' if bins_config['log_bins'] else 'linear',
         'variables': variables_names,
         'confidence_level': confidence_interval,
-        'ci_method': ci_method,
         'bootstrappable_dimensions': ','.join(bootstrappable_dims),
         'backend': backend,
     }
@@ -367,7 +357,7 @@ def _process_no_bootstrap_spherical_3d(ds, dims, variables_names, order, fun, r_
           "Calculating structure function once with full dataset.")
     
     # Calculate structure function
-    results, dx_vals, dy_vals, dz_vals = calculate_structure_function_3d(
+    results, dx_vals, dy_vals, dz_vals, pair_counts = calculate_structure_function_3d(
         ds=ds,
         dims=dims,
         variables_names=variables_names,
@@ -392,10 +382,6 @@ def _process_no_bootstrap_spherical_3d(ds, dims, variables_names, order, fun, r_
     theta_valid = np.arctan2(valid_dy, valid_dx)
     phi_valid = np.arccos(np.clip(valid_dz / np.maximum(r_valid, 1e-10), -1.0, 1.0))
     
-    # Volume element weights
-    weights = r_valid**2
-    weights = np.maximum(weights, 1e-10)
-    
     # Create bin indices
     r_indices = np.clip(np.digitize(r_valid, bins_config['r_bins']) - 1,
                        0, bins_config['n_bins_r'] - 1)
@@ -418,18 +404,16 @@ def _process_no_bootstrap_spherical_3d(ds, dims, variables_names, order, fun, r_
             continue
             
         bin_sf = valid_results[r_bin_mask]
-        bin_weights = weights[r_bin_mask]
         bin_theta_indices = theta_indices[r_bin_mask]
         bin_phi_indices = phi_indices[r_bin_mask]
         
         point_counts[r_idx] = len(bin_sf)
         
         if len(bin_sf) > 0:
-            normalized_weights = bin_weights / np.sum(bin_weights) * len(bin_weights)
-            sf_means[r_idx] = np.average(bin_sf, weights=normalized_weights)
+            # Simple unweighted mean - each estimate counts equally
+            sf_means[r_idx] = np.mean(bin_sf)
             if len(bin_sf) > 1:
-                weighted_var = np.average((bin_sf - sf_means[r_idx])**2, weights=normalized_weights)
-                sf_stds[r_idx] = np.sqrt(weighted_var)
+                sf_stds[r_idx] = np.std(bin_sf)
         
         # Process angular bins
         for theta_idx in range(bins_config['n_bins_theta']):
@@ -439,11 +423,9 @@ def _process_no_bootstrap_spherical_3d(ds, dims, variables_names, order, fun, r_
                     continue
                 
                 angular_sf = bin_sf[angular_mask]
-                angular_weights = bin_weights[angular_mask]
                 
                 if len(angular_sf) > 0:
-                    normalized_angular_weights = angular_weights / np.sum(angular_weights) * len(angular_weights)
-                    sfr[phi_idx, theta_idx, r_idx] = np.average(angular_sf, weights=normalized_angular_weights)
+                    sfr[phi_idx, theta_idx, r_idx] = np.mean(angular_sf)
                     sfr_counts[phi_idx, theta_idx, r_idx] = len(angular_sf)
     
     return sf_means, sf_stds, point_counts, sfr, sfr_counts, bins_config
@@ -472,7 +454,7 @@ def _create_spherical_dataset(results, bins_config, order, fun, window_size_thet
                             window_size_phi, window_size_r, convergence_eps, max_nbootstrap,
                             initial_nbootstrap, bootstrappable_dims, backend,
                             variables_names, confidence_interval=0.95,
-                            ci_method='percentile', conditioning_info=None):
+                            conditioning_info=None):
     """
     Create output dataset for spherical binning.
     
@@ -494,7 +476,6 @@ def _create_spherical_dataset(results, bins_config, order, fun, window_size_thet
         ci_upper, ci_lower = _calculate_confidence_intervals(
             results['sf_means'], results['sf_stds'], results['point_counts'], confidence_interval
         )
-        ci_method = 'standard'
     
     # Build coordinates
     coords = {
@@ -520,8 +501,7 @@ def _create_spherical_dataset(results, bins_config, order, fun, window_size_thet
         'backend': backend,
         'weighting': 'r_squared',
         'bootstrap_se_method': 'unweighted_std',
-        'confidence_level': confidence_interval,
-        'ci_method': ci_method
+        'confidence_level': confidence_interval
     }
     
     # Check if we have conditioning info

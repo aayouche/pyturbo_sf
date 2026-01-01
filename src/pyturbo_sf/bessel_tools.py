@@ -392,7 +392,7 @@ def _process_no_bootstrap_flux_2d(ds, dims, variables_names, order, fun,
           "Calculating structure function once with full dataset.")
     
     # Calculate structure function
-    results, dx_vals, dy_vals = calculate_structure_function_2d(
+    results, dx_vals, dy_vals, pair_counts = calculate_structure_function_2d(
         ds=ds,
         dims=dims,
         variables_names=variables_names,
@@ -573,7 +573,7 @@ def _create_flux_dataset_2d(results, config, order, fun, window_size_theta,
                             window_size_k, convergence_eps, max_nbootstrap,
                             initial_nbootstrap, bootstrappable_dims, backend,
                             variables_names, confidence_interval,
-                            ci_method='percentile', conditioning_info=None):
+                            conditioning_info=None):
     """
     Create output xarray Dataset for energy flux.
     
@@ -610,8 +610,6 @@ def _create_flux_dataset_2d(results, config, order, fun, window_size_theta,
         Variable names.
     confidence_interval : float
         Confidence level.
-    ci_method : str
-        CI method ('standard' or 'percentile').
     conditioning_info : dict, optional
         Conditioning information.
         
@@ -637,7 +635,6 @@ def _create_flux_dataset_2d(results, config, order, fun, window_size_theta,
             results['energy_flux'], results['flux_stds'], 
             results['point_counts'], confidence_interval
         )
-        ci_method = 'standard'
     
     # Calculate quality mask
     mask_quality = _calculate_quality_mask(
@@ -672,8 +669,7 @@ def _create_flux_dataset_2d(results, config, order, fun, window_size_theta,
         'bootstrappable_dimensions': ','.join(bootstrappable_dims),
         'backend': backend,
         'weighting': 'bessel_j1_flux',
-        'confidence_level': confidence_interval,
-        'ci_method': ci_method
+        'confidence_level': confidence_interval
     }
     
     # Check if we have conditioning info

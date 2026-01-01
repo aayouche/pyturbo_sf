@@ -71,6 +71,7 @@ Documentation Contents
    data_preparation
    structure_functions
    algorithm_details
+   optimal_bootsize
    examples
 
 .. toctree::

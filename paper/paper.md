@@ -46,8 +46,6 @@ Structure functions are fundamental diagnostic tools in turbulence research that
 
 The package addresses computational bottlenecks through power-of-2 spacing strategies, adaptive convergence monitoring, and memory-optimized algorithms. PyTurbo_SF delivers robust uncertainty quantification through bootstrap resampling and supports diverse (conditional) structure function types including longitudinal, transverse, scalar, advective, and energy flux functions [@Pearson2021; @Pearson2024].
 
-The package addresses computational bottlenecks through power-of-2 spacing strategies, adaptive convergence monitoring, and memory-optimized algorithms. PyTurbo_SF delivers robust uncertainty quantification through bootstrap resampling and supports diverse structure function types including longitudinal, transverse, scalar, advective, and energy flux functions [@Pearson2021; @Pearson2024].
-
 
 Applications span oceanographic time series and satellite measurements to high-resolution simulations, enabling consistent methodology across scales from laboratory to planetary systems.
 
@@ -83,6 +81,24 @@ The package provides three main interfaces: bin_sf_1d() for time series, bin_sf_
 # Related work and scientific impact
 
 PyTurbo_SF represents a significant advancement by uniquely combining comprehensive function types, adaptive bootstrap methodology, and optimized algorithms. While fastSF provides basic parallelized calculations [@Sadhukhan2021] and MATLAB toolkits offer specific analyses [@Fuchs2022], no existing software delivers the combination of statistical rigor, efficiency, and breadth required for contemporary turbulence research.
+
+FluidSF [@Wagner2025] is a related Python package for structure function calculations. While both packages support 1D/2D/3D data and core SF types (longitudinal, transverse, scalar, advective), they differ substantially in scope and methodology. Table 1 summarizes the key differences.
+
+: Comparison of PyTurbo_SF and FluidSF. \label{tab:comparison}
+
+| Feature | PyTurbo_SF | FluidSF |
+|---------|------------|---------|
+| Structure function order | Arbitrary | 2nd and 3rd only |
+| Uncertainty quantification | Adaptive bootstrap with convergence | None |
+| Parallel processing | Yes (joblib) | No |
+| Conditional structure functions | Yes | No |
+| Cross-term SF types | Extensive (longitudinal-transverse, longitudinal-scalar, transverse-scalar, scalar-scalar) | Limited (velocity-scalar blend) |
+| 3D transverse decomposition | Full (ij, ik, jk planes) | Single |
+| Spectral flux via Bessel transform | Yes | No |
+| Isotropic averaging | Exact spherical/polar binning | Simplified |
+| Output format | xarray Dataset with metadata | NumPy arrays |
+
+PyTurbo_SF's primary contributions are: (1) rigorous uncertainty quantification through adaptive bootstrap resampling with automatic convergence monitoring, (2) support for arbitrary-order structure functions essential for intermittency analysis, and (3) computational efficiency through parallelization and power-of-2 spacing strategies enabling analysis of large datasets.
 
 The package enables application of recent theoretical developments, particularly advective structure functions providing direct energy flux measurements [@Pearson2021] and spectral flux estimation methodologies [@Pearson2024]. These reveal energy pathways traditional approaches cannot capture, offering insights into cascade mechanisms in ocean and atmospheric turbulence.
 

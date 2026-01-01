@@ -50,22 +50,59 @@ from .bessel_tools import (
     VALID_FLUX_FUNCTIONS
 )
 
-# Valid CI methods (for isotropic and flux functions)
-VALID_CI_METHODS = ['standard', 'percentile']
-
-
 ###################################################################Main Function for 2D Pyturbo###########################################################################################
 
 def bin_sf_2d(ds, variables_names, order, bins, bootsize=None, fun='longitudinal', 
             initial_nbootstrap=100, max_nbootstrap=1000, step_nbootstrap=100,
             convergence_eps=0.1, n_jobs=-1, backend='threading',
-            conditioning_var=None, conditioning_bins=None):
+            conditioning_var=None, conditioning_bins=None, confidence_interval=0.95,
+            seed=None):
     """
     Bin structure function with proper volume element weighting.
     
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Input dataset with velocity/scalar fields.
+    variables_names : list
+        Names of variables to use.
+    order : float or tuple
+        Order of the structure function.
+    bins : dict
+        Dictionary with dimensions as keys and bin edges as values.
+    bootsize : dict, optional
+        Bootstrap block sizes for each dimension.
+    fun : str
+        Structure function type. Default is 'longitudinal'.
+    initial_nbootstrap : int
+        Initial number of bootstrap iterations. Default is 100.
+    max_nbootstrap : int
+        Maximum number of bootstrap iterations. Default is 1000.
+    step_nbootstrap : int
+        Bootstrap step size for adaptive convergence. Default is 100.
+    convergence_eps : float
+        Convergence epsilon for bootstrap. Default is 0.1.
+    n_jobs : int
+        Number of parallel jobs. Default is -1 (all cores).
+    backend : str
+        Parallel backend. Default is 'threading'.
+    conditioning_var : str, optional
+        Name of variable to condition on.
+    conditioning_bins : array-like, optional
+        Bin edges for conditioning variable.
+    confidence_interval : float
+        Confidence level for intervals. Default is 0.95.
+    seed : int, optional
+        Random seed for reproducibility. Use same seed for conditioned and 
+        unconditioned runs to ensure point_counts partition correctly.
+    
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with binned structure function results.
+    
     Note: This function produces 2D output where confidence intervals are computed
-    using the standard normal approximation. For percentile-based CIs, use
-    get_isotropic_sf_2d which produces 1D radial output.
+    using weighted percentile bootstrap method.
     """
     # Initialize and validate
     dims, data_shape, valid_ds, time_dims = validate_dataset_2d(ds)
@@ -79,6 +116,8 @@ def bin_sf_2d(ds, variables_names, order, bins, bootsize=None, fun='longitudinal
     print("\n" + "="*60)
     print(f"STARTING BIN_SF WITH FUNCTION TYPE: {fun}")
     print(f"Variables: {variables_names}, Order: {order}")
+    if seed is not None:
+        print(f"Using seed {seed} for reproducible bootstrap sampling")
     print("="*60 + "\n")
     
     # Validate bins
@@ -98,12 +137,14 @@ def bin_sf_2d(ds, variables_names, order, bins, bootsize=None, fun='longitudinal
             'bin_bootstraps': np.zeros_like(sf_means),
             'bin_density': np.zeros_like(sf_means),
             'bin_status': np.ones_like(sf_means, dtype=bool),
-            'spacing_values': []
+            'spacing_values': [],
+            'variables_names': variables_names
         }
         
         return _create_2d_dataset(results, bins_config, dims, order, fun,
                                 bootstrappable_dims, time_dims, convergence_eps,
-                                max_nbootstrap, initial_nbootstrap, backend)
+                                max_nbootstrap, initial_nbootstrap, backend,
+                                confidence_level=confidence_interval)
     
     # Initialize bins
     bins_config = _initialize_2d_bins(bins[dims[1]], bins[dims[0]], dims)
@@ -115,7 +156,8 @@ def bin_sf_2d(ds, variables_names, order, bins, bootsize=None, fun='longitudinal
         step_nbootstrap, convergence_eps, all_spacings,
         bootsize_dict, num_bootstrappable, all_spacings,
         boot_indexes, bootstrappable_dims, n_jobs, backend,
-        time_dims, conditioning_var, conditioning_bins, is_2d=True
+        time_dims, conditioning_var, conditioning_bins, is_2d=True,
+        confidence_level=confidence_interval, seed=seed
     )
     
     results['variables_names'] = variables_names
@@ -124,7 +166,8 @@ def bin_sf_2d(ds, variables_names, order, bins, bootsize=None, fun='longitudinal
     print("\nCreating output dataset...")
     ds_binned = _create_2d_dataset(results, bins_config, dims, order, fun,
                                  bootstrappable_dims, time_dims, convergence_eps,
-                                 max_nbootstrap, initial_nbootstrap, backend)
+                                 max_nbootstrap, initial_nbootstrap, backend,
+                                 confidence_level=confidence_interval)
     
     print("2D SF COMPLETED SUCCESSFULLY!")
     print("="*60)
@@ -141,7 +184,7 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
                       n_bins_theta=36, window_size_theta=None, window_size_r=None,
                       convergence_eps=0.1, n_jobs=-1, backend='threading',
                       conditioning_var=None, conditioning_bins=None, confidence_interval=0.95,
-                      ci_method='percentile'):
+                      seed=None):
     """
     Get isotropic (radially binned) structure function with volume element weighting.
     
@@ -185,10 +228,9 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
         - np.linspace(...) or np.logspace(...): Multiple bins (N+1 edges for N bins)
     confidence_interval : float
         Confidence level for intervals. Default is 0.95.
-    ci_method : str, optional
-        Method for computing confidence intervals:
-        - 'standard': Normal approximation (mean ± z * std)
-        - 'percentile': Percentile method from bootstrap distribution (default)
+    seed : int, optional
+        Random seed for reproducibility. Use same seed for conditioned and 
+        unconditioned runs to ensure point_counts partition correctly.
         
     Returns
     -------
@@ -196,10 +238,6 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
         Dataset with isotropic structure function results.
         If conditioning_bins has >2 elements, output has 'cond_bin' dimension.
     """
-    # Validate ci_method
-    if ci_method not in VALID_CI_METHODS:
-        raise ValueError(f"ci_method must be one of {VALID_CI_METHODS}, got '{ci_method}'")
-    
     # Check for multiple conditioning bins
     if conditioning_bins is not None and len(conditioning_bins) > 2:
         # Multiple bins case - loop and concatenate
@@ -209,6 +247,8 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
         print(f"\n{'='*60}")
         print(f"MULTI-BIN CONDITIONING: {n_cond_bins} bins for {conditioning_var}")
         print(f"Bin edges: {conditioning_bins}")
+        if seed is not None:
+            print(f"Using seed {seed} for reproducible bootstrap sampling")
         print(f"{'='*60}\n")
         
         datasets = []
@@ -221,8 +261,9 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
                 initial_nbootstrap, max_nbootstrap, step_nbootstrap,
                 fun, n_bins_theta, window_size_theta, window_size_r,
                 convergence_eps, n_jobs, backend,
-                conditioning_var, single_bin, confidence_interval, ci_method,
-                conditioning_info={'var_name': conditioning_var, 'bins': conditioning_bins, 'bin_idx': i}
+                conditioning_var, single_bin, confidence_interval,
+                conditioning_info={'var_name': conditioning_var, 'bins': conditioning_bins, 'bin_idx': i},
+                seed=seed
             )
             datasets.append(ds_single)
         
@@ -239,7 +280,7 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
         
         print(f"\n{'='*60}")
         print(f"MULTI-BIN CONDITIONING COMPLETE")
-        print(f"Output dimensions: {dict(ds_combined.dims)}")
+        print(f"Output dimensions: {dict(ds_combined.sizes)}")
         print(f"{'='*60}\n")
         
         return ds_combined
@@ -250,7 +291,8 @@ def get_isotropic_sf_2d(ds, variables_names, order=2.0, bins=None, bootsize=None
         initial_nbootstrap, max_nbootstrap, step_nbootstrap,
         fun, n_bins_theta, window_size_theta, window_size_r,
         convergence_eps, n_jobs, backend,
-        conditioning_var, conditioning_bins, confidence_interval, ci_method
+        conditioning_var, conditioning_bins, confidence_interval,
+        seed=seed
     )
 
 
@@ -259,9 +301,14 @@ def _get_isotropic_sf_2d_single_bin(ds, variables_names, order, bins, bootsize,
                                     fun, n_bins_theta, window_size_theta, window_size_r,
                                     convergence_eps, n_jobs, backend,
                                     conditioning_var, conditioning_bins, confidence_interval,
-                                    ci_method, conditioning_info=None):
+                                    conditioning_info=None, seed=None):
     """
     Internal function to compute isotropic SF for a single conditioning bin.
+    
+    Parameters
+    ----------
+    seed : int, optional
+        Random seed for reproducibility.
     """
     # Initialize and validate
     dims, data_shape, valid_ds, time_dims = validate_dataset_2d(ds)
@@ -274,7 +321,7 @@ def _get_isotropic_sf_2d_single_bin(ds, variables_names, order, bins, bootsize,
     print("\n" + "="*60)
     print(f"STARTING ISOTROPIC_SF WITH FUNCTION TYPE: {fun}")
     print(f"Variables: {variables_names}, Order: {order}")
-    print(f"CI method: {ci_method}, confidence level: {confidence_interval}")
+    print(f"Confidence level: {confidence_interval}")
     if conditioning_var:
         print(f"Conditioning: {conditioning_var} in {conditioning_bins}")
     print("="*60 + "\n")
@@ -295,10 +342,6 @@ def _get_isotropic_sf_2d_single_bin(ds, variables_names, order, bins, bootsize,
             valid_ds, dims, variables_names, order, fun, bins['r'], n_bins_theta, time_dims, conditioning_var, conditioning_bins
         )
         
-        if ci_method != 'standard':
-            print(f"Note: ci_method='{ci_method}' requested but no bootstrap samples available.")
-            print("      Using 'standard' (normal approximation) for CI calculation.")
-        
         results = {
             'sf_means': sf_means,
             'sf_stds': sf_stds,
@@ -316,12 +359,12 @@ def _get_isotropic_sf_2d_single_bin(ds, variables_names, order, bins, bootsize,
                                        convergence_eps, max_nbootstrap,
                                        initial_nbootstrap, bootstrappable_dims,
                                        backend, variables_names, confidence_interval,
-                                       'standard', conditioning_info)
+                                       conditioning_info)
     
     # Initialize bins
     bins_config = _initialize_polar_bins_2d(bins['r'], n_bins_theta)
     
-    # Run adaptive bootstrap loop with ci_method
+    # Run adaptive bootstrap loop
     results = _run_adaptive_bootstrap_loop_2d(
         valid_ds, dims, variables_names, order, fun,
         bins_config, initial_nbootstrap, max_nbootstrap,
@@ -329,7 +372,7 @@ def _get_isotropic_sf_2d_single_bin(ds, variables_names, order, bins, bootsize,
         bootsize_dict, num_bootstrappable, all_spacings,
         boot_indexes, bootstrappable_dims, n_jobs, backend,
         time_dims, conditioning_var, conditioning_bins, is_2d=False,
-        confidence_level=confidence_interval, ci_method=ci_method
+        confidence_level=confidence_interval, seed=seed
     )
     
     # Create output dataset
@@ -339,7 +382,7 @@ def _get_isotropic_sf_2d_single_bin(ds, variables_names, order, bins, bootsize,
         window_size_theta, window_size_r,
         convergence_eps, max_nbootstrap,
         initial_nbootstrap, bootstrappable_dims,
-        backend, variables_names, confidence_interval, ci_method,
+        backend, variables_names, confidence_interval,
         conditioning_info
     )
     
@@ -359,7 +402,7 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
                        n_bins_theta=36, n_r_bins=100, window_size_theta=None, window_size_k=None,
                        convergence_eps=0.1, n_jobs=-1, backend='threading',
                        conditioning_var=None, conditioning_bins=None, confidence_interval=0.95,
-                       ci_method='percentile'):
+                       seed=None):
     """
     Compute spectral energy flux from advective structure function.
     
@@ -416,10 +459,6 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
         Bin edges for conditioning variable.
     confidence_interval : float
         Confidence level for intervals. Default is 0.95.
-    ci_method : str, optional
-        Method for computing confidence intervals:
-        - 'standard': Normal approximation (mean ± z * std)
-        - 'percentile': Percentile method from bootstrap distribution (default)
         
     Returns
     -------
@@ -455,10 +494,6 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
     # Validate function type
     _validate_flux_function(fun)
     
-    # Validate ci_method
-    if ci_method not in VALID_CI_METHODS:
-        raise ValueError(f"ci_method must be one of {VALID_CI_METHODS}, got '{ci_method}'")
-    
     # Check for multiple conditioning bins
     if conditioning_bins is not None and len(conditioning_bins) > 2:
         # Multiple bins case - loop and concatenate
@@ -468,6 +503,8 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
         print(f"\n{'='*60}")
         print(f"MULTI-BIN CONDITIONING: {n_cond_bins} bins for {conditioning_var}")
         print(f"Bin edges: {conditioning_bins}")
+        if seed is not None:
+            print(f"Using seed {seed} for reproducible bootstrap sampling")
         print(f"{'='*60}\n")
         
         datasets = []
@@ -480,8 +517,9 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
                 initial_nbootstrap, max_nbootstrap, step_nbootstrap,
                 fun, n_bins_theta, n_r_bins, window_size_theta, window_size_k,
                 convergence_eps, n_jobs, backend,
-                conditioning_var, single_bin, confidence_interval, ci_method,
-                conditioning_info={'var_name': conditioning_var, 'bins': conditioning_bins, 'bin_idx': i}
+                conditioning_var, single_bin, confidence_interval,
+                conditioning_info={'var_name': conditioning_var, 'bins': conditioning_bins, 'bin_idx': i},
+                seed=seed
             )
             datasets.append(ds_single)
         
@@ -498,7 +536,7 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
         
         print(f"\n{'='*60}")
         print(f"MULTI-BIN CONDITIONING COMPLETE")
-        print(f"Output dimensions: {dict(ds_combined.dims)}")
+        print(f"Output dimensions: {dict(ds_combined.sizes)}")
         print(f"{'='*60}\n")
         
         return ds_combined
@@ -509,7 +547,8 @@ def get_energy_flux_2d(ds, variables_names, order=1.0, wavenumbers=None, r_bins=
         initial_nbootstrap, max_nbootstrap, step_nbootstrap,
         fun, n_bins_theta, n_r_bins, window_size_theta, window_size_k,
         convergence_eps, n_jobs, backend,
-        conditioning_var, conditioning_bins, confidence_interval, ci_method
+        conditioning_var, conditioning_bins, confidence_interval,
+        seed=seed
     )
 
 
@@ -518,9 +557,14 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
                                     fun, n_bins_theta, n_r_bins, window_size_theta, window_size_k,
                                     convergence_eps, n_jobs, backend,
                                     conditioning_var, conditioning_bins, confidence_interval,
-                                    ci_method, conditioning_info=None):
+                                    conditioning_info=None, seed=None):
     """
     Internal function to compute energy flux for a single conditioning bin.
+    
+    Parameters
+    ----------
+    seed : int, optional
+        Random seed for reproducibility.
     """
     # Validate function type
     _validate_flux_function(fun)
@@ -537,7 +581,7 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
     print(f"STARTING ENERGY FLUX COMPUTATION")
     print(f"Function type: {fun}")
     print(f"Variables: {variables_names}, Order: {order}")
-    print(f"CI method: {ci_method}, confidence level: {confidence_interval}")
+    print(f"Confidence level: {confidence_interval}")
     print(f"Formula: Π(K) = -K/2 ∫ SF̃(r) J₁(Kr) dr")
     if conditioning_var:
         print(f"Conditioning: {conditioning_var} in {conditioning_bins}")
@@ -563,10 +607,6 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
             k, r_config, n_bins_theta, time_dims, conditioning_var, conditioning_bins
         )
         
-        if ci_method != 'standard':
-            print(f"Note: ci_method='{ci_method}' requested but no bootstrap samples available.")
-            print("      Using 'standard' (normal approximation) for CI calculation.")
-        
         results = {
             'energy_flux': energy_flux,
             'flux_stds': flux_stds,
@@ -584,7 +624,7 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
                                         convergence_eps, max_nbootstrap,
                                         initial_nbootstrap, bootstrappable_dims,
                                         backend, variables_names, confidence_interval,
-                                        'standard', conditioning_info)
+                                        conditioning_info)
     
     # Initialize configuration
     config = _initialize_flux_config_2d(k, r_config, n_bins_theta)
@@ -600,7 +640,7 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
             "the structure function directly with _process_no_bootstrap_flux_2d."
         )
     
-    # Run adaptive bootstrap loop for energy flux with ci_method
+    # Run adaptive bootstrap loop for energy flux
     results = _run_adaptive_bootstrap_loop_flux_2d(
         valid_ds, dims, variables_names, order, fun,
         config, initial_nbootstrap, max_nbootstrap,
@@ -608,7 +648,7 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
         bootsize_dict, num_bootstrappable, all_spacings,
         boot_indexes, bootstrappable_dims, n_jobs, backend,
         time_dims, conditioning_var, conditioning_bins,
-        confidence_level=confidence_interval, ci_method=ci_method
+        confidence_level=confidence_interval, seed=seed
     )
     
     # Create output dataset
@@ -618,7 +658,7 @@ def _get_energy_flux_2d_single_bin(ds, variables_names, order, wavenumbers, r_bi
         window_size_theta, window_size_k,
         convergence_eps, max_nbootstrap,
         initial_nbootstrap, bootstrappable_dims,
-        backend, variables_names, confidence_interval, ci_method,
+        backend, variables_names, confidence_interval,
         conditioning_info
     )
     

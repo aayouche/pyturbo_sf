@@ -15,8 +15,7 @@ import xarray as xr
 
 from pyturbo_sf.three_dimensional import (
     bin_sf_3d,
-    get_isotropic_sf_3d,
-    VALID_CI_METHODS
+    get_isotropic_sf_3d
 )
 
 
@@ -204,6 +203,9 @@ class TestBinSF3DBasic:
         
         assert isinstance(result, xr.Dataset)
         assert 'sf' in result.data_vars
+        assert 'std_error' in result.data_vars
+        assert 'ci_lower' in result.data_vars
+        assert 'ci_upper' in result.data_vars
         assert 'x' in result.coords
         assert 'y' in result.coords
         assert 'z' in result.coords
@@ -313,7 +315,8 @@ class TestBinSF3DOutputStructure:
             n_jobs=1
         )
         
-        expected_vars = ['sf', 'std_error', 'point_counts', 'density', 'nbootstraps', 'converged']
+        expected_vars = ['sf', 'std_error', 'ci_lower', 'ci_upper', 'point_counts', 
+                        'density', 'nbootstraps', 'converged']
         for var in expected_vars:
             assert var in result.data_vars, f"Missing variable: {var}"
 
@@ -368,64 +371,6 @@ class TestIsotropicSF3DBasic:
         assert result.attrs['function_type'] == 'scalar'
 
 
-class TestIsotropicSF3DConfidenceIntervals:
-    """Tests for CI methods in get_isotropic_sf_3d."""
-    
-    def test_percentile_ci_method(self, dataset_3d_simple, radial_bins):
-        """Test percentile CI method."""
-        result = get_isotropic_sf_3d(
-            ds=dataset_3d_simple,
-            variables_names=["u", "v", "w"],
-            order=2,
-            bins=radial_bins,
-            bootsize={"x": 4, "y": 4, "z": 3},
-            fun='longitudinal',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            n_bins_theta=6,
-            n_bins_phi=4,
-            ci_method='percentile',
-            confidence_interval=0.95,
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'percentile'
-        assert 'ci_upper' in result.data_vars
-        assert 'ci_lower' in result.data_vars
-        
-    def test_standard_ci_method(self, dataset_3d_simple, radial_bins):
-        """Test standard CI method."""
-        result = get_isotropic_sf_3d(
-            ds=dataset_3d_simple,
-            variables_names=["u", "v", "w"],
-            order=2,
-            bins=radial_bins,
-            bootsize={"x": 4, "y": 4, "z": 3},
-            fun='longitudinal',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            n_bins_theta=6,
-            n_bins_phi=4,
-            ci_method='standard',
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'standard'
-        
-    def test_invalid_ci_method_raises_error(self, dataset_3d_simple, radial_bins):
-        """Test that invalid CI method raises ValueError."""
-        with pytest.raises(ValueError, match="ci_method must be one of"):
-            get_isotropic_sf_3d(
-                ds=dataset_3d_simple,
-                variables_names=["u", "v", "w"],
-                order=2,
-                bins=radial_bins,
-                bootsize={"x": 4, "y": 4, "z": 3},
-                ci_method='invalid_method',
-                n_jobs=1
-            )
-
-
 class TestIsotropicSF3DConditioning:
     """Tests for conditioning in get_isotropic_sf_3d."""
     
@@ -449,16 +394,6 @@ class TestIsotropicSF3DConditioning:
         
         assert isinstance(result, xr.Dataset)
         assert 'sf' in result.data_vars
-
-
-
-class TestValidCIMethods:
-    """Tests for VALID_CI_METHODS constant."""
-    
-    def test_valid_methods_exist(self):
-        """Test that expected CI methods are in the constant."""
-        assert 'standard' in VALID_CI_METHODS
-        assert 'percentile' in VALID_CI_METHODS
 
 
 class TestNumericalProperties:
@@ -517,6 +452,52 @@ class TestTransverseComponents:
         )
         
         assert result.attrs['function_type'] == 'transverse_jk'
+
+
+# =============================================================================
+# Tests for seed parameter (reproducibility)
+# =============================================================================
+
+class TestSeedParameter:
+    """Tests for seed parameter functionality."""
+    
+    def test_bin_sf_3d_with_seed(self, dataset_3d_simple, linear_bins_3d):
+        """Test that bin_sf_3d accepts seed parameter."""
+        result = bin_sf_3d(
+            ds=dataset_3d_simple,
+            variables_names=["u", "v", "w"],
+            order=2,
+            bins=linear_bins_3d,
+            bootsize={"x": 4, "y": 4, "z": 3},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1,
+            seed=42
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+        
+    def test_isotropic_sf_3d_with_seed(self, dataset_3d_simple, radial_bins):
+        """Test that get_isotropic_sf_3d accepts seed parameter."""
+        result = get_isotropic_sf_3d(
+            ds=dataset_3d_simple,
+            variables_names=["u", "v", "w"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 4, "y": 4, "z": 3},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=6,
+            n_bins_phi=4,
+            n_jobs=1,
+            seed=42
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
 
 
 if __name__ == "__main__":

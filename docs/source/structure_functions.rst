@@ -521,7 +521,7 @@ bin_sf_1d
        conditioning_var=None,
        conditioning_bins=None,
        confidence_interval=0.95,
-       ci_method='percentile'
+       seed=42
    )
 
 
@@ -544,7 +544,8 @@ bin_sf_2d
        n_jobs=-1,
        backend='threading',
        conditioning_var=None,
-       conditioning_bins=None
+       conditioning_bins=None,
+       seed=42
    )
 
 
@@ -567,7 +568,8 @@ bin_sf_3d
        n_jobs=-1,
        backend='threading',
        conditioning_var=None,
-       conditioning_bins=None
+       conditioning_bins=None,
+       seed=42
    )
 
 
@@ -595,7 +597,7 @@ get_isotropic_sf_2d
        conditioning_var=None,
        conditioning_bins=None,
        confidence_interval=0.95,
-       ci_method='percentile'
+       seed=42
    )
 
 
@@ -625,7 +627,7 @@ get_isotropic_sf_3d
        conditioning_var=None,
        conditioning_bins=None,
        confidence_interval=0.95,
-       ci_method='percentile'
+       seed=42
    )
 
 
@@ -655,7 +657,7 @@ get_energy_flux_2d
        conditioning_var=None,
        conditioning_bins=None,
        confidence_interval=0.95,
-       ci_method='percentile'
+       seed=42
    )
 
 
@@ -698,8 +700,8 @@ Common Parameters
      - ``[lo, hi]`` for single bin or array for multiple bins
    * - ``confidence_interval``
      - Confidence level (default: 0.95)
-   * - ``ci_method``
-     - ``'percentile'`` (bootstrap) or ``'standard'`` (normal approx.)
+   * - ``seed``
+     - Integer to ensure reproducibility at the initial phase of the bootstrapping
 
 
 ----

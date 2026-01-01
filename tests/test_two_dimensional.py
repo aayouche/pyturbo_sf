@@ -14,8 +14,7 @@ import xarray as xr
 from pyturbo_sf.two_dimensional import (
     bin_sf_2d,
     get_isotropic_sf_2d,
-    get_energy_flux_2d,
-    VALID_CI_METHODS
+    get_energy_flux_2d
 )
 
 
@@ -188,6 +187,8 @@ class TestBinSF2DBasic:
         assert isinstance(result, xr.Dataset)
         assert 'sf' in result.data_vars
         assert 'std_error' in result.data_vars
+        assert 'ci_lower' in result.data_vars
+        assert 'ci_upper' in result.data_vars
         assert 'x' in result.coords
         assert 'y' in result.coords
         assert result['sf'].dims == ('y', 'x')
@@ -336,8 +337,8 @@ class TestBinSF2DOutputStructure:
             n_jobs=1
         )
         
-        expected_vars = ['sf', 'std_error', 'point_counts', 'density', 
-                        'nbootstraps', 'converged']
+        expected_vars = ['sf', 'std_error', 'ci_lower', 'ci_upper', 'point_counts', 
+                        'density', 'nbootstraps', 'converged']
         for var in expected_vars:
             assert var in result.data_vars, f"Missing variable: {var}"
 
@@ -411,62 +412,6 @@ class TestIsotropicSF2DBasic:
         )
         
         assert result.attrs['bin_type'] == 'logarithmic'
-
-
-class TestIsotropicSF2DConfidenceIntervals:
-    """Tests for CI methods in get_isotropic_sf_2d."""
-    
-    def test_percentile_ci_method(self, dataset_2d, radial_bins):
-        """Test percentile CI method."""
-        result = get_isotropic_sf_2d(
-            ds=dataset_2d,
-            variables_names=["u", "v"],
-            order=2,
-            bins=radial_bins,
-            bootsize={"x": 8, "y": 6},
-            fun='longitudinal',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            n_bins_theta=8,
-            ci_method='percentile',
-            confidence_interval=0.95,
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'percentile'
-        assert 'ci_upper' in result.data_vars
-        assert 'ci_lower' in result.data_vars
-        
-    def test_standard_ci_method(self, dataset_2d, radial_bins):
-        """Test standard CI method."""
-        result = get_isotropic_sf_2d(
-            ds=dataset_2d,
-            variables_names=["u", "v"],
-            order=2,
-            bins=radial_bins,
-            bootsize={"x": 8, "y": 6},
-            fun='longitudinal',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            n_bins_theta=8,
-            ci_method='standard',
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'standard'
-        
-    def test_invalid_ci_method_raises_error(self, dataset_2d, radial_bins):
-        """Test that invalid CI method raises ValueError."""
-        with pytest.raises(ValueError, match="ci_method must be one of"):
-            get_isotropic_sf_2d(
-                ds=dataset_2d,
-                variables_names=["u", "v"],
-                order=2,
-                bins=radial_bins,
-                bootsize={"x": 8, "y": 6},
-                ci_method='invalid_method',
-                n_jobs=1
-            )
 
 
 class TestIsotropicSF2DConditioning:
@@ -575,64 +520,6 @@ class TestEnergyFlux2DBasic:
             )
 
 
-class TestEnergyFlux2DConfidenceIntervals:
-    """Tests for CI methods in get_energy_flux_2d."""
-    
-    def test_percentile_ci_method(self, dataset_2d):
-        """Test percentile CI method."""
-        wavenumbers = np.logspace(-0.5, 0.5, 8)
-        
-        result = get_energy_flux_2d(
-            ds=dataset_2d,
-            variables_names=["u", "v", "adv_u", "adv_v"],
-            order=1,
-            wavenumbers=wavenumbers,
-            bootsize={"x": 8, "y": 6},
-            fun='advective',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            n_bins_theta=8,
-            ci_method='percentile',
-            confidence_interval=0.95,
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'percentile'
-        
-    def test_standard_ci_method(self, dataset_2d):
-        """Test standard CI method."""
-        wavenumbers = np.logspace(-0.5, 0.5, 8)
-        
-        result = get_energy_flux_2d(
-            ds=dataset_2d,
-            variables_names=["u", "v", "adv_u", "adv_v"],
-            order=1,
-            wavenumbers=wavenumbers,
-            bootsize={"x": 8, "y": 6},
-            fun='advective',
-            initial_nbootstrap=10,
-            max_nbootstrap=20,
-            n_bins_theta=8,
-            ci_method='standard',
-            n_jobs=1
-        )
-        
-        assert result.attrs['ci_method'] == 'standard'
-
-
-# =============================================================================
-# Tests for VALID_CI_METHODS constant
-# =============================================================================
-
-class TestValidCIMethods:
-    """Tests for VALID_CI_METHODS constant."""
-    
-    def test_valid_methods_exist(self):
-        """Test that expected CI methods are in the constant."""
-        assert 'standard' in VALID_CI_METHODS
-        assert 'percentile' in VALID_CI_METHODS
-
-
 # =============================================================================
 # Tests for numerical properties
 # =============================================================================
@@ -716,6 +603,72 @@ class TestDifferentOrders:
         )
         
         assert result.attrs['order'] == '3'
+
+
+# =============================================================================
+# Tests for seed parameter (reproducibility)
+# =============================================================================
+
+class TestSeedParameter:
+    """Tests for seed parameter functionality."""
+    
+    def test_bin_sf_2d_with_seed(self, dataset_2d, linear_bins_2d):
+        """Test that bin_sf_2d accepts seed parameter."""
+        result = bin_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=linear_bins_2d,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_jobs=1,
+            seed=42
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+        
+    def test_isotropic_sf_2d_with_seed(self, dataset_2d, radial_bins):
+        """Test that get_isotropic_sf_2d accepts seed parameter."""
+        result = get_isotropic_sf_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v"],
+            order=2,
+            bins=radial_bins,
+            bootsize={"x": 8, "y": 6},
+            fun='longitudinal',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1,
+            seed=42
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'sf' in result.data_vars
+        
+    def test_energy_flux_2d_with_seed(self, dataset_2d):
+        """Test that get_energy_flux_2d accepts seed parameter."""
+        wavenumbers = np.logspace(-0.5, 0.5, 8)
+        
+        result = get_energy_flux_2d(
+            ds=dataset_2d,
+            variables_names=["u", "v", "adv_u", "adv_v"],
+            order=1,
+            wavenumbers=wavenumbers,
+            bootsize={"x": 8, "y": 6},
+            fun='advective',
+            initial_nbootstrap=5,
+            max_nbootstrap=10,
+            n_bins_theta=8,
+            n_jobs=1,
+            seed=42
+        )
+        
+        assert isinstance(result, xr.Dataset)
+        assert 'energy_flux' in result.data_vars
 
 
 if __name__ == "__main__":
