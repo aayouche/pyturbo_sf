@@ -180,8 +180,9 @@ def validate_dataset_1d(ds):
     ValueError
         If the dataset doesn't have exactly one dimension
     """
-    # Get all dimensions
-    dims = list(ds.dims)
+    # Get dimensions from a data variable to get actual order
+    first_var = list(ds.data_vars)[0]
+    dims = list(ds[first_var].dims)
     
     # Verify there's only one dimension
     if len(dims) != 1:
@@ -226,8 +227,9 @@ def validate_dataset_2d(ds):
     ValueError
         If dataset doesn't have exactly 2 dimensions or dimensions are incompatible
     """
-    # Get dimensions
-    dims = list(ds.dims)
+    # Get dimensions from a data variable to get actual order
+    first_var = list(ds.data_vars)[0]
+    dims = list(ds[first_var].dims)
     
     # Check for exactly 2 dimensions
     if len(dims) != 2:
@@ -257,11 +259,11 @@ def validate_dataset_2d(ds):
     if reversed_pair in expected_pairs:
         # Transpose to correct order
         transposed_ds = ds.transpose(dims[1], dims[0])
-        transposed_dims = list(transposed_ds.dims)
+        transposed_dims = [dims[1], dims[0]]  # Use requested order directly
         print(f"Transposed dimensions from {dims} to {transposed_dims}")
         
         # Update time_dims to match new order
-        time_dims = {dim: time_dims[dims[i]] for i, dim in enumerate(transposed_dims)}
+        time_dims = {dim: time_dims[dim] for dim in transposed_dims}
         
         # Print time dimension information
         for dim, is_time in time_dims.items():
@@ -312,8 +314,9 @@ def validate_dataset_3d(ds):
     ValueError
         If dataset doesn't have exactly 3 dimensions or dimensions are incompatible
     """
-    # Get dimensions
-    dims = list(ds.dims)
+    # Get dimensions from a data variable to get actual order
+    first_var = list(ds.data_vars)[0]
+    dims = list(ds[first_var].dims)
     
     # Check for exactly 3 dimensions
     if len(dims) != 3:
@@ -344,11 +347,11 @@ def validate_dataset_3d(ds):
     
     # If the dimensions are not in the right order, transpose to correct order
     transposed_ds = ds.transpose(*expected_order)
-    transposed_dims = list(transposed_ds.dims)
+    transposed_dims = expected_order  # Use requested order directly
     print(f"Transposed dimensions to {transposed_dims}")
     
     # Update time_dims to match new order
-    time_dims = {dim: time_dims[dims[i]] for i, dim in enumerate(transposed_dims)}
+    time_dims = {dim: time_dims[dim] for dim in transposed_dims}
     
     return transposed_dims, dict(transposed_ds.sizes), transposed_ds, time_dims
     
