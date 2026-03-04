@@ -1,8 +1,8 @@
 # PyTurbo
 ---
-[[License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[[Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
-[[Documentation](https://img.shields.io/badge/documentation-latest-blue)](https://github.com/aayouche/pyturbo_sf)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![Documentation](https://img.shields.io/badge/documentation-latest-blue)](https://pyturbo-sf.readthedocs.io)
 
 <p align="center">
 <img src="docs/pyturbo_logo.png" alt="PyTurbo Logo" width="400"/>
