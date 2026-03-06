@@ -22,7 +22,7 @@ Development Environment Setup
    .. code-block:: bash
 
       # Using conda (recommended)
-      conda create -n pyturbo_dev python=3.9
+      conda create -n pyturbo_dev python=3.12
       conda activate pyturbo_dev
       
       # Or using venv
@@ -30,15 +30,12 @@ Development Environment Setup
       source pyturbo_dev/bin/activate  # Linux/Mac
       # pyturbo_dev\Scripts\activate  # Windows
 
-3. **Install Development Dependencies**
+3. **Install in Development Mode with Dev Dependencies**
 
    .. code-block:: bash
 
-      # Install package in development mode
-      pip install -e .
-      
-      # Install development dependencies
-      pip install -r requirements-dev.txt
+      # Install package in editable mode with dev dependencies
+      pip install -e ".[dev]"
 
 4. **Verify Installation**
 
