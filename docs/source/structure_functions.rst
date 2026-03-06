@@ -85,7 +85,7 @@ Third-order structure function including stress tensor components for energy flu
 
 .. math::
 
-   D_{adv}(\mathbf{r}) = \left\langle \delta u_L \cdot \delta \tau_L \right\rangle
+   D_{adv}(\mathbf{r}) = \left\langle \delta u \cdot \delta \tau \right\rangle
 
 **Scalar Structure Function** (``fun='scalar'``)
 
