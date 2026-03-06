@@ -15,6 +15,65 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    "xarray>=2023.0.0",
+    "matplotlib>=3.7.0",
+    "bottleneck>=1.3.0",
+    "joblib>=1.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "memory_profiler>=0.61.0",
+]
+docs = [
+    "sphinx>=6.0.0,<9.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "nbsphinx>=0.9.0",
+    "ipython>=8.0.0",
+]
+extras = [
+    "pyproj",
+    "tqdm",
+    "h5netcdf",
+    "netcdf4",
+    "jupyter",
+]
+complete = [
+    "pyturbo_sf[dev,docs,extras]",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/aayouche/pyturbo_sf"
+"Bug Tracker" = "https://github.com/aayouche/pyturbo_sf/issues"[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyturbo_sf"
+version = "1.0.7"
+description = "Python Turbulence Unleashed: Rapid Binning Operator"
+readme = "README.md"
+authors = [
+    {name = "Adam Ayouche", email = "adam_ayouche@brown.edu"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
