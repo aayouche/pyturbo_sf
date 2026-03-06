@@ -5,7 +5,7 @@ PyTurbo_SF Documentation
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
 
-.. image:: https://img.shields.io/badge/python-3.8%2B-blue
+.. image:: https://img.shields.io/badge/python-3.12%2B-blue
    :target: https://www.python.org/downloads/
    :alt: Python Version
 
@@ -16,6 +16,22 @@ PyTurbo_SF Documentation
 **PyTurbo_SF** is a Python package for efficient structure function calculations in 1D, 2D, and 3D data. 
 The package provides optimized implementations for analyzing turbulent flows and other spatially or temporally varying fields. 
 With advanced bootstrapping techniques and adaptive binning, PyTurbo_SF can handle large datasets while maintaining statistical accuracy.
+
+Statement of Need
+-----------------
+
+Structure functions are fundamental diagnostic tools in turbulence research, yet existing software solutions face significant limitations: computational intractability for large datasets, absence of uncertainty quantification, manual parameter tuning, and limited function types.
+
+**PyTurbo_SF** addresses these challenges for researchers in oceanography, atmospheric science, and fluid dynamics who need to:
+
+* Analyze massive datasets from satellite missions (e.g., NASA's SWOT), autonomous platforms, and high-resolution simulations
+* Obtain statistically rigorous uncertainty estimates through adaptive bootstrap resampling
+* Compute arbitrary-order structure functions essential for intermittency analysis
+* Apply recent theoretical advances such as advective structure functions and spectral flux estimation via Bessel transforms
+* Calculate conditional structure functions for flow-dependent analysis
+* Compute cross-structure functions (longitudinal-transverse, longitudinal-scalar, transverse-scalar, scalar-scalar) for multi-field turbulence diagnostics
+
+The package fills a critical gap by providing the first comprehensive, statistically robust framework that scales from small observational datasets to terabyte-scale simulation outputs while delivering quantified uncertainties essential for scientific interpretation.
 
 Features
 --------
