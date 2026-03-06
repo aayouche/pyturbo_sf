@@ -9,7 +9,7 @@ Requirements
 Python Version
 ~~~~~~~~~~~~~~
 
-PyTurbo_SF requires Python 3.8 or higher. We recommend using Python 3.9 or 3.10 for optimal performance.
+PyTurbo_SF requires Python 3.12 or higher.
 
 Dependencies
 ~~~~~~~~~~~~
@@ -232,9 +232,11 @@ If you encounter installation issues:
 
 1. Check the `GitHub Issues <https://github.com/aayouche/pyturbo_sf/issues>`_
 2. Create a new issue with:
+
    - Your operating system and Python version
    - Complete error message
    - Installation method used
+
 3. Join our community discussions
 
 Upgrading
@@ -252,7 +254,7 @@ To upgrade to a specific version:
 
 .. code-block:: bash
 
-   pip install pyturbo_sf==1.2.0
+   pip install pyturbo_sf==1.0.7
 
 Uninstallation
 --------------
