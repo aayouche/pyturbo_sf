@@ -231,11 +231,12 @@ Getting Help
 If you encounter installation issues:
 
 1. Check the `GitHub Issues <https://github.com/aayouche/pyturbo_sf/issues>`_
+
 2. Create a new issue with:
 
-   - Your operating system and Python version
-   - Complete error message
-   - Installation method used
+   * Your operating system and Python version
+   * Complete error message
+   * Installation method used
 
 3. Join our community discussions
 
