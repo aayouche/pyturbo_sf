@@ -303,21 +303,32 @@ Calculate multiple structure function orders:
 
 .. code-block:: python
 
+   # Create sample data
+   n = 1000
+   time = np.linspace(0, 10, n)
+   signal = np.sin(2 * np.pi * time) + 0.5 * np.random.randn(n)
+   
+   ds = xr.Dataset(
+       data_vars={"velocity": ("time", signal)},
+       coords={"time": time}
+   )
+   
+   bins = {'time': np.logspace(-2, 0, 15)}
    orders = [2, 3, 4, 6]
    results = {}
    
-   for n in orders:
-       results[n] = pyturbo_sf.bin_sf_1d(
-           ds=ds, variables_names=["velocity"], order=n,
+   for order in orders:
+       results[order] = pyturbo_sf.bin_sf_1d(
+           ds=ds, variables_names=["velocity"], order=order,
            bins=bins, fun='scalar'
        )
    
    # Plot scaling
    plt.figure(figsize=(10, 8))
-   for n in orders:
-       r = results[n]['sf_mean'].coords['time']
-       sf = results[n]['sf_mean'].values
-       plt.loglog(r, sf, 'o-', label=f'Order {n}')
+   for order in orders:
+       r = results[order]['bin'].values
+       sf = results[order]['sf'].values
+       plt.loglog(r, sf, 'o-', label=f'Order {order}')
    
    plt.xlabel('Separation')
    plt.ylabel('Structure Function')
@@ -333,6 +344,10 @@ Compare different variables:
 .. code-block:: python
 
    # Create dataset with multiple variables
+   n = 1000
+   time = np.linspace(0, 10, n)
+   signal = np.sin(2 * np.pi * time) + 0.5 * np.random.randn(n)
+   
    ds_multi = xr.Dataset(
        data_vars={
            "velocity": ("time", signal),
@@ -341,6 +356,7 @@ Compare different variables:
        coords={"time": time}
    )
    
+   bins = {'time': np.logspace(-2, 0, 15)}
    variables = ["velocity", "temperature"]
    results_multi = {}
    
