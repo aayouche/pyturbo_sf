@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
 [![Documentation](https://img.shields.io/badge/documentation-latest-blue)](https://pyturbo-sf.readthedocs.io)
+[![CI](https://github.com/aayouche/pyturbo_sf/actions/workflows/ci.yml/badge.svg)](https://github.com/aayouche/pyturbo_sf/actions/workflows/ci.yml)
 
 <p align="center">
 <img src="docs/pyturbo_logo.png" alt="PyTurbo Logo" width="400"/>
