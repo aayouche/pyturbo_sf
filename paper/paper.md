@@ -95,8 +95,6 @@ The adaptive bootstrap framework addresses a fundamental challenge: quantifying 
 
 # Acknowledgements
 
-This software package is based upon work supported by the US Department of Energy grant DE-SC0024572.
-
-Any opinions, findings, and conclusions or recommendations expressed in this package are those of the authors and do not necessarily reflect the views of the US Department of Energy.
+This software package, and the contributions of AA and BFK, is based upon work supported by the US Department of Energy grant DE-SC0024572. BP and CW were supported by the National Science Foundation under Grants OCE-2023721 and OCE-2525055.
 
 # References
