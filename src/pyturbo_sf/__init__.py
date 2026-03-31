@@ -47,7 +47,7 @@ from . import bootstrapping_tools
 from . import isotropy_tools
 from . import bessel_tools
 
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 
 __all__ = [
     # Main functions

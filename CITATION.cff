@@ -8,7 +8,7 @@ authors:
   given-names: "Baylor"
   orcid: "https://orcid.org/0000-0002-2871-2048"
 title: "pyturbo_sf"
-version: 1.0.4
+version: 1.0.8
 doi: 10.5281/zenodo.10463863
 date-released: 2025-04-10
 url: "https://github.com/aayouche/pyturbo_sf"
