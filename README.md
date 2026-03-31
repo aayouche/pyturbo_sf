@@ -5,6 +5,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/fluidsf?color=blue)](https://pypi.org/project/pyturbo_sf)
 [![Documentation](https://img.shields.io/badge/documentation-latest-blue)](https://pyturbo-sf.readthedocs.io)
 [![CI](https://github.com/aayouche/pyturbo_sf/actions/workflows/ci.yml/badge.svg)](https://github.com/aayouche/pyturbo_sf/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/1042380152.svg)](https://doi.org/10.5281/zenodo.19342650)
 
 <p align="center">
 <img src="docs/pyturbo_logo.png" alt="PyTurbo Logo" width="400"/>
