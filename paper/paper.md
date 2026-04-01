@@ -90,10 +90,6 @@ PyTurbo_SF's primary contributions are: (1) rigorous uncertainty quantification 
 
 The package enables application of recent theoretical developments, particularly advective structure functions providing direct energy flux measurements [@Pearson2021] and spectral flux estimation methodologies [@Pearson2024]. These reveal energy pathways traditional approaches cannot capture, offering insights into cascade mechanisms in ocean and atmospheric turbulence.
 
-Scientific applications demonstrate transformative impact across domains. PyTurbo_SF enables analysis of satellite altimetry data for characterizing surface turbulence and large eddy simulation data for understanding boundary layer dynamics. The consistent methodology enables comparative studies previously impossible due to software limitations.
-
-The adaptive bootstrap framework addresses a fundamental challenge: quantifying uncertainties in structure function estimates. PyTurbo_SF's principled uncertainty quantification enables robust statistical comparisons and hypothesis testing, elevating scientific standards.
-
 # Acknowledgements
 
 This software package, and the contributions of AA and BFK, is based upon work supported by the US Department of Energy grant DE-SC0024572. BP and CW were supported by the National Science Foundation under Grants OCE-2023721 and OCE-2525055.
