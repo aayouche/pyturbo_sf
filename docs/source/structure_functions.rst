@@ -452,6 +452,14 @@ Function Reference
      - ``['v', 'w', 'theta']``
      - ✓
      - ✓
+   * - ``advective``
+     - ``['u', 'v', 'w', 'tau1','tau2','tau3']``
+     - ✓
+     - ✓
+   * - ``pressure_work``
+     - ``['p', 'u', 'v', 'w']``
+     - ✓
+     - ✓
 
 .. note::
 
