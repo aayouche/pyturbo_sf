@@ -13,6 +13,10 @@ PyTurbo_SF Documentation
    :target: https://pyturbo-sf.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
+.. image:: https://joss.theoj.org/papers/10.21105/joss.09876/status.svg
+   :target: https://doi.org/10.21105/joss.09876
+   :alt: JOSS Paper
+
 **PyTurbo_SF** is a Python package for efficient structure function calculations in 1D, 2D, and 3D data. 
 The package provides optimized implementations for analyzing turbulent flows and other spatially or temporally varying fields. 
 With advanced bootstrapping techniques and adaptive binning, PyTurbo_SF can handle large datasets while maintaining statistical accuracy.
