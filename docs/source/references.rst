@@ -360,7 +360,7 @@ Citation Guidelines
 If you use PyTurbo_SF in your research, please cite:
 
 **Software Citation:**
-   PyTurbo_SF Development Team (2024). PyTurbo_SF: A Python package for efficient structure function calculations. Version X.X.X. https://github.com/aayouche/pyturbo_sf
+   Ayouche et al., (2026). PyTurbo_SF: An Adaptive Bootstrap Framework for Efficient Structure Function Analysis in Turbulent Flows. Journal of Open Source Software, 11(120), 9876, https://doi.org/10.21105/joss.09876
 
 **Methodology Citations:**
 
