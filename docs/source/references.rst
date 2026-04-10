@@ -375,12 +375,17 @@ Depending on your application, please also cite relevant theoretical papers:
 
 .. code-block:: bibtex
 
-   @software{pyturbo_sf,
-     title = {PyTurbo_SF: A Python package for efficient structure function calculations},
-     author = {PyTurbo_SF Development Team},
-     year = {2024},
-     url = {https://github.com/aayouche/pyturbo_sf},
-     version = {1.0.0}
+   @article{Ayouche_PyTurbo_SF_An_Adaptive_2026,
+   author = {Ayouche, Adam and Fox-Kemper, Baylor and Hell, Momme and Pearson, Brodie and Wagner, Cassidy},
+   doi = {10.21105/joss.09876},
+   journal = {Journal of Open Source Software},
+   month = apr,
+   number = {120},
+   pages = {9876},
+   title = {{PyTurbo\_SF: An Adaptive Bootstrap Framework for Efficient Structure Function Analysis in Turbulent Flows}},
+   url = {https://joss.theoj.org/papers/10.21105/joss.09876},
+   volume = {11},
+   year = {2026}
    }
 
    @article{kolmogorov1941,
