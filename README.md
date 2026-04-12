@@ -42,8 +42,8 @@ You can also fork/clone this repository to your local machine and install it loc
 ```console
 $ pip install .
 ```
-## Citing
-
+# Citing
+---
 If you use Pyturbo_SF in your research or educational activities, we would be grateful if you credit Pyturbo_SF by name! You can cite our [JOSS publication](https://joss.theoj.org/papers/10.21105/joss.09876), the specific version of Pyturbo_SF with [Zenodo](https://doi.org/10.5281/zenodo.19342650) or use the following citation:
 
 > Ayouche et al., (2026). PyTurbo_SF: An Adaptive Bootstrap Framework for Efficient Structure Function Analysis in Turbulent Flows. Journal of Open Source Software, 11(120), 9876, https://doi.org/10.21105/joss.09876
