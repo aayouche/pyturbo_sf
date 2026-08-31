@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyturbo_sf"
-version = "1.0.8"
+version = "1.0.9"
 description = "Python Turbulence Unleashed: Rapid Binning Operator"
 readme = "README.md"
 authors = [

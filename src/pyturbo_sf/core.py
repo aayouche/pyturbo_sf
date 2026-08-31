@@ -850,10 +850,13 @@ def compute_boot_indexes_1d(dim, data_shape, bootsize, all_spacings, num_bootstr
         num_windows = data_shape[dim] - window_size + 1
         
         # Store the indexes for this spacing
+        # Shape is (bootsize, num_windows): rows are positions within a window,
+        # columns are bootstrap samples -- consistent with the 2D/3D versions
+        # and with the `indexes[dim][:, nb]` usage in structure_functions.py
         boot_indexes[sp_value] = {
             dim: sliding_window_view(
                 np.arange(data_shape[dim]), 
-                (window_size,), 
+                (num_windows,), 
                 writeable=False
             )[::sp_value]
         }
@@ -919,10 +922,12 @@ def get_boot_indexes_1d(dim, data_shape, bootsize, all_spacings, boot_indexes, n
         return {}
         
     # Create sliding windows
+    # Shape is (bootsize, num_windows) -- see compute_boot_indexes_1d
+    num_windows = data_shape[dim] - window_size + 1
     indexes = {
         dim: sliding_window_view(
             np.arange(data_shape[dim]), 
-            (window_size,), 
+            (num_windows,), 
             writeable=False
         )[::sp_value]
     }
